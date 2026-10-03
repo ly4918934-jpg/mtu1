@@ -161,7 +161,7 @@
     <div id="main-app-container" class="w-full sm:max-w-[430px] h-screen sm:h-[880px] bg-slate-50 sm:rounded-[44px] shadow-2xl flex flex-col justify-between relative overflow-hidden border-0 sm:border-[8px] sm:border-slate-800">
         
         <!-- Top Dynamic Header -->
-        <div id="app-header" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white px-5 pt-7 pb-5 rounded-b-[32px] shadow-xl transition-all duration-300 relative overflow-hidden flex-shrink-0 border-b border-white/10">
+        <div id="app-header" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white px-5 pt-8 pb-5 rounded-b-[32px] shadow-xl transition-all duration-300 relative overflow-hidden flex-shrink-0 border-b border-white/10">
             <!-- Background Icon Watermark -->
             <div class="absolute -left-6 -bottom-8 opacity-10 text-9xl pointer-events-none transform -rotate-12">
                 <i id="header-bg-icon" class="fa-solid fa-graduation-cap"></i>
@@ -169,19 +169,19 @@
             
             <!-- Top Status Row -->
             <div class="flex justify-between items-center z-10 relative">
-                <div class="flex items-center gap-2.5">
-                    <div id="header-logo-container" class="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center border border-amber-400/40 shadow-inner overflow-hidden flex-shrink-0">
-                        <i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-base"></i>
+                <div class="flex items-center gap-3">
+                    <div id="header-logo-container" class="w-11 h-11 rounded-2xl bg-amber-500/20 flex items-center justify-center border border-amber-400/40 shadow-inner overflow-hidden flex-shrink-0">
+                        <i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-lg"></i>
                     </div>
                     <div>
-                        <span class="text-[9px] font-bold tracking-wider uppercase text-amber-400/90 block leading-tight">وزارة التعليم العالي والبحث العلمي</span>
-                        <h2 class="text-xs font-bold text-slate-200 truncate max-w-[170px]" id="school-header-title">جامعة بغداد - كلية الهندسة</h2>
+                        <span class="text-[10px] font-bold tracking-wider uppercase text-amber-400/90 block">وزارة التعليم العالي والبحث العلمي</span>
+                        <h2 class="text-xs font-bold text-slate-200 truncate max-w-[160px]" id="school-header-title">جامعة بغداد - كلية الهندسة</h2>
                     </div>
                 </div>
 
-                <!-- مؤشر الربط اللحظي السحابي (أخضر = متصل، أحمر = غير متصل) -->
-                <div id="supabase-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 rounded-full text-rose-300 font-black backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
-                    <span id="supabase-status-dot" class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                <!-- مؤشر حالة الربط السحابي مع Supabase -->
+                <div id="supabase-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
+                    <span id="supabase-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
                     <span id="supabase-status-text">سحابي غير متصل</span>
                 </div>
             </div>
@@ -527,14 +527,12 @@
 
         // --- Supabase Cloud Database Realtime Engine ---
         function initSupabase() {
-            const savedUrl = localStorage.getItem('sp_supabase_url') || appState.supabaseConfig.url;
-            const savedKey = localStorage.getItem('sp_supabase_key') || appState.supabaseConfig.key;
+            const url = appState.supabaseConfig.url;
+            const key = appState.supabaseConfig.key;
 
-            if (savedUrl && savedKey) {
+            if (url && key) {
                 try {
-                    supabaseClient = supabase.createClient(savedUrl, savedKey);
-                    appState.supabaseConfig.url = savedUrl;
-                    appState.supabaseConfig.key = savedKey;
+                    supabaseClient = supabase.createClient(url, key);
                     testSupabaseConnection(false);
                 } catch(e) {
                     console.error("Supabase Init Error:", e);
@@ -563,17 +561,20 @@
 
                 setSupabaseStatus(true);
                 if (data && data.data) {
-                    const cloudConfig = appState.supabaseConfig;
+                    const localConfig = appState.supabaseConfig;
                     appState = data.data;
-                    appState.supabaseConfig = cloudConfig;
+                    appState.supabaseConfig = localConfig;
                     renderContent();
                     updateStatsBar();
+                } else {
+                    await syncStateToCloud();
                 }
+
                 if (showAlert) showToast("تم الاتصال بقاعدة بيانات Supabase بنجاح!");
             } catch(err) {
                 console.error("Supabase Error:", err);
                 setSupabaseStatus(false);
-                if (showAlert) showToast("فشل الاتصال: تأكد من إنشاء جدول professor_data في Supabase", "error");
+                if (showAlert) showToast("فشل الاتصال: تأكد من تشغيل كود SQL لإنشاء جدول professor_data", "error");
             }
         }
 
@@ -586,17 +587,16 @@
             if (!badge || !dot || !text) return;
 
             if (isConnected) {
-                badge.className = "text-[10px] bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 rounded-full text-emerald-300 font-black backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
+                badge.className = "text-[10px] bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-full text-emerald-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
                 dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
                 text.innerText = "سحابي متصل ✓";
             } else {
-                badge.className = "text-[10px] bg-rose-500/20 border border-rose-500/40 px-2.5 py-1 rounded-full text-rose-300 font-black backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
+                badge.className = "text-[10px] bg-rose-500/20 border border-rose-500/40 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
                 dot.className = "w-2 h-2 rounded-full bg-rose-500";
                 text.innerText = "سحابي غير متصل";
             }
         }
 
-        // حفظ لحظي تلقائي لكل عملية في التطبيق
         async function syncStateToCloud() {
             localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
 
@@ -625,7 +625,7 @@
             {
                 index: 0,
                 title: "الإعدادات والنظام",
-                subtitle: "إعدادات الأستاذ الجامعي والكلية والربط السحابي مع Supabase",
+                subtitle: "إعدادات الأستاذ الجامعي والكلية والنسخ الاحتياطي السحابي",
                 icon: "fa-gear",
                 isSettings: true
             },
@@ -635,11 +635,11 @@
                 subtitle: "إدارة قيود الطلبة، المراحل الدراسية، والبيانات والمسجلين",
                 icon: "fa-graduation-cap",
                 cards: [
-                    { title: "إدارة المراحل والشعب", desc: "إضافة المراحل والشعب الأكاديمية وإحصائيات القيد", icon: "fa-layer-group", colorBg: "bg-indigo-50 text-indigo-600 border-indigo-100", action: "add_class" },
+                    { title: "إدارة المراحل والشعب", desc: "إضافة، تعديل، وحذف المراحل والشعب وإحصائيات القيد", icon: "fa-layer-group", colorBg: "bg-indigo-50 text-indigo-600 border-indigo-100", action: "add_class" },
                     { title: "تسجيل طالب جديد", desc: "إضافة طالب بالاسم الرباعي، والمرحلة (رقم الهاتف اختياري)", icon: "fa-user-plus", colorBg: "bg-emerald-50 text-emerald-600 border-emerald-100", action: "add_student" },
-                    { title: "الطلبة المسجلين في النظام", desc: "تعديل بيانات الطلبة المسجلين (الاسم، المرحلة، الشعبة، ورقم الواتساب)", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
+                    { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين (الاسم، المرحلة، الشعبة، ورقم الواتساب)", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
                     { title: "استيراد القوائم بالجملة", desc: "إدخال قائمة أسماء الوجبات بأسلوب النسخ واللصق", icon: "fa-file-import", colorBg: "bg-sky-50 text-sky-600 border-sky-100", action: "import_students" },
-                    { title: "إضافة مادة دراسية", desc: "ربط المادة بالمرحلة والأستاذ والمنهج الجامعي", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
+                    { title: "إضافة مادة دراسية", desc: "إضافة، تعديل، وحذف المواد الدراسية وربطها بالمراحل", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
                 ]
             },
             {
@@ -686,7 +686,7 @@
 
             document.getElementById('header-title').innerHTML = `${data.title}`;
             document.getElementById('header-subtitle').innerText = data.subtitle;
-            document.getElementById('header-main-icon').className = `fa-solid ${data.icon} text-amber-400 text-base`;
+            document.getElementById('header-main-icon').className = `fa-solid ${data.icon} text-amber-400 text-lg`;
             document.getElementById('header-bg-icon').className = `fa-solid ${data.icon}`;
 
             updateStatsBar();
@@ -721,7 +721,7 @@
             if (appState.schoolInfo.logo) {
                 logoContainer.innerHTML = `<img src="${appState.schoolInfo.logo}" class="w-full h-full object-cover">`;
             } else {
-                logoContainer.innerHTML = `<i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-base"></i>`;
+                logoContainer.innerHTML = `<i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-lg"></i>`;
             }
         }
 
@@ -772,7 +772,7 @@
             container.innerHTML = html;
         }
 
-        // 2. Settings Tab Rendering (مع إعدادات Supabase)
+        // 2. Settings Tab Rendering
         function renderSettingsTab(container) {
             let logoPreview = appState.schoolInfo.logo 
                 ? `<img src="${appState.schoolInfo.logo}" class="w-10 h-10 rounded-2xl object-cover border border-amber-400/40">`
@@ -791,22 +791,6 @@
                     </div>
 
                     <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80 space-y-2">
-                        <!-- بطاقة ربط Supabase -->
-                        <div onclick="triggerAction('edit_supabase_config')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-emerald-100 bg-emerald-50/30">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs"><i class="fa-solid fa-database"></i></div>
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h4 class="font-bold text-xs text-slate-800">الربط مع قاعدة بيانات Supabase</h4>
-                                    </div>
-                                    <p class="text-[10px] text-slate-400">حفظ سحابي لحظي لكل البيانات والدرجات والغيابات</p>
-                                </div>
-                            </div>
-                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${appState.supabaseConfig.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-                                ${appState.supabaseConfig.connected ? 'مفعل' : 'إعداد'}
-                            </span>
-                        </div>
-
                         <div onclick="triggerAction('edit_school_info')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm"><i class="fa-solid fa-pen-to-square"></i></div>
@@ -2952,7 +2936,7 @@
             `;
         }
 
-        // --- Modals Engine ---
+        // --- Modals Engine مع ميزات الحذف والتعديل المباشرة ---
         function triggerAction(actionKey) {
             currentModalType = actionKey;
             const modal = document.getElementById('action-modal');
@@ -2965,52 +2949,11 @@
             box.classList.remove('scale-95');
             box.classList.add('scale-100');
 
-            if (actionKey === 'edit_supabase_config') {
-                titleEl.innerText = "إعدادات الربط مع قاعدة بيانات Supabase";
-                iconEl.className = "fa-solid fa-database";
-
-                bodyEl.innerHTML = `
-                    <div class="space-y-3">
-                        <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-2xl text-[10px] text-emerald-900 leading-relaxed">
-                            <strong>معلومات الربط:</strong> تم إدراج مفاتيح مشروعك في Supabase تلقائياً. تأكد من تشغيل كود SQL لإنشاء جدول <code>professor_data</code> في Supabase ليتم الحفظ والمزامنة اللحظية فوراً.
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Project URL:</label>
-                            <input id="inp-supa-url" type="text" value="${appState.supabaseConfig.url || ''}" placeholder="https://xyzcompany.supabase.co" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold text-slate-800">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">Anon / Public API Key:</label>
-                            <input id="inp-supa-key" type="password" value="${appState.supabaseConfig.key || ''}" placeholder="eyJhbGciOi..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold text-slate-800">
-                        </div>
-                        <div class="pt-2">
-                            <button onclick="saveSupabaseSettings()" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-black text-xs hover:bg-emerald-700 shadow-md transition-all flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-bolt"></i>
-                                <span>حفظ واختبار الربط السحابي</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            } else if (actionKey === 'add_class') {
+            // 1. إدارة المراحل والشعب (مع إمكانية الحذف والتعديل)
+            if (actionKey === 'add_class') {
                 titleEl.innerText = "إدارة المراحل والشعب الأكاديمية";
                 iconEl.className = "fa-solid fa-layer-group";
-                let classRows = appState.classes.map(c => `<div class="flex justify-between items-center bg-slate-50 p-2 rounded-xl text-xs font-semibold"><span>${c.name} - شعبة ${c.section}</span><span class="text-slate-400">${c.count} طالب</span></div>`).join('');
-                
-                bodyEl.innerHTML = `
-                    <div class="space-y-2.5">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المرحلة الأكاديمية:</label>
-                            <input id="inp-class-name" type="text" placeholder="مثال: المرحلة الأولى" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">الشعبة:</label>
-                            <input id="inp-class-section" type="text" placeholder="مثال: أ أو ب" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900">
-                        </div>
-                        <div class="mt-2 pt-2 border-t border-slate-100">
-                            <h4 class="font-bold text-xs text-slate-700 mb-1.5">المراحل المضافة حاليًا:</h4>
-                            <div class="max-h-28 overflow-y-auto custom-scroll space-y-1">${classRows}</div>
-                        </div>
-                    </div>
-                `;
+                renderClassesManagement(bodyEl);
             } 
             else if (actionKey === 'add_student') {
                 titleEl.innerText = "تسجيل طالب جديد";
@@ -3035,8 +2978,10 @@
                         </div>
                     </div>
                 `;
-            } else if (actionKey === 'manage_registered_students') {
-                titleEl.innerText = "الطلبة المسجلين في النظام (تعديل البيانات)";
+            } 
+            // 2. الطلبة المسجلين في النظام (مع إمكانية التعديل والحذف)
+            else if (actionKey === 'manage_registered_students') {
+                titleEl.innerText = "الطلبة المسجلين في النظام (تعديل وحذف)";
                 iconEl.className = "fa-solid fa-users-gear";
                 renderRegisteredStudentsList(bodyEl);
             } else if (actionKey === 'import_students') {
@@ -3049,25 +2994,12 @@
                         <button onclick="executeBulkImport()" class="w-full bg-sky-600 text-white py-2 rounded-xl font-bold text-xs">استيراد القائمة الآن</button>
                     </div>
                 `;
-            } else if (actionKey === 'add_subject') {
-                titleEl.innerText = "إضافة مادة دراسية";
+            } 
+            // 3. إضافة مادة دراسية (مع إمكانية التعديل والحذف)
+            else if (actionKey === 'add_subject') {
+                titleEl.innerText = "إدارة المواد الدراسية (إضافة، تعديل، وحذف)";
                 iconEl.className = "fa-solid fa-book-bookmark";
-                let classDropdowns = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-
-                bodyEl.innerHTML = `
-                    <div class="space-y-2.5">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المادة الجامعية:</label>
-                            <input id="inp-sub-name" type="text" placeholder="مثال: تراكيب البيانات" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة:</label>
-                            <select id="inp-sub-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none">
-                                ${classDropdowns}
-                            </select>
-                        </div>
-                    </div>
-                `;
+                renderSubjectsManagement(bodyEl);
             } else if (actionKey === 'add_schedule_item') {
                 titleEl.innerText = "إضافة محاضرة جديدة للجدول";
                 iconEl.className = "fa-solid fa-calendar-plus";
@@ -3162,58 +3094,122 @@
             }
         }
 
-        async function saveSupabaseSettings() {
-            const url = document.getElementById('inp-supa-url').value.trim();
-            const key = document.getElementById('inp-supa-key').value.trim();
+        // --- 1. إدارة المراحل والشعب (عرض، تعديل، وحذف) ---
+        function renderClassesManagement(container) {
+            let classRows = appState.classes.map(c => `
+                <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
+                    <div>
+                        <h5 class="font-extrabold text-xs text-slate-800">${c.name} - شعبة (${c.section})</h5>
+                        <span class="text-[10px] text-slate-400 font-medium">${c.count || 0} طالب مقيد</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="editClassItem(${c.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
+                            <i class="fa-solid fa-pen"></i>
+                            <span>تعديل</span>
+                        </button>
+                        <button onclick="deleteClassItem(${c.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-black text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
 
-            if (!url || !key) {
-                showToast("الرجاء إدخال الـ URL والمفتاح الخاص بـ Supabase", "error");
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
+                        <h4 class="font-black text-xs text-indigo-950 mb-2">إضافة مرحلة وشعبة جديدة:</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">اسم المرحلة الأكاديمية:</label>
+                                <input id="inp-class-name" type="text" placeholder="مثال: المرحلة الأولى" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">الشعبة:</label>
+                                <input id="inp-class-section" type="text" placeholder="مثال: أ أو ب" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-1">
+                        <h4 class="font-bold text-xs text-slate-700 mb-2">المراحل والشعب المضافة حالياً (إمكانية التعديل والحذف):</h4>
+                        <div class="max-h-60 overflow-y-auto custom-scroll space-y-1">${classRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مراحل مسجلة</p>'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function editClassItem(classId) {
+            let cls = appState.classes.find(c => c.id === classId);
+            if (!cls) return;
+
+            let container = document.getElementById('modal-body');
+            container.innerHTML = `
+                <div class="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+                    <p class="text-[10px] font-bold text-slate-800">تعديل: ${cls.name} (${cls.section})</p>
+                </div>
+                <div class="space-y-2.5">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المرحلة الأكاديمية:</label>
+                        <input id="edit-cls-name" type="text" value="${cls.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">الشعبة:</label>
+                        <input id="edit-cls-section" type="text" value="${cls.section}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                    </div>
+                    <div class="pt-2 flex gap-2">
+                        <button onclick="saveUpdatedClassItem(${cls.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
+                        <button onclick="triggerAction('add_class')" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إلغاء</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveUpdatedClassItem(classId) {
+            let cls = appState.classes.find(c => c.id === classId);
+            if (!cls) return;
+
+            let newName = document.getElementById('edit-cls-name').value.trim();
+            let newSec = document.getElementById('edit-cls-section').value.trim();
+
+            if (!newName || !newSec) {
+                showToast("الرجاء ملء اسم المرحلة والشعبة", "error");
                 return;
             }
 
-            localStorage.setItem('sp_supabase_url', url);
-            localStorage.setItem('sp_supabase_key', key);
-            appState.supabaseConfig.url = url;
-            appState.supabaseConfig.key = key;
+            const oldName = cls.name;
+            const oldSec = cls.section;
 
-            try {
-                supabaseClient = supabase.createClient(url, key);
-                await testSupabaseConnection(true);
-                closeModal();
-            } catch(e) {
-                showToast("خطأ في الاتصال، تأكد من صحة البيانات", "error");
-            }
-        }
+            cls.name = newName;
+            cls.section = newSec;
 
-        function handleLogoUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                appState.schoolInfo.logo = e.target.result;
-                const box = document.getElementById('logo-preview-box');
-                if (box) {
-                    box.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain">`;
+            // تحديث بيانات الطلبة المرتبطين بهذه المرحلة
+            appState.students.forEach(st => {
+                if (st.class === oldName && st.section === oldSec) {
+                    st.class = newName;
+                    st.section = newSec;
                 }
-                await syncStateToCloud();
-                showToast("تم تحميل شعار الكلية بنجاح!");
-            };
-            reader.readAsDataURL(file);
+            });
+
+            await syncStateToCloud();
+            showToast("تم تعديل المرحلة والشعبة بنجاح!");
+            triggerAction('add_class');
+            updateStatsBar();
+            renderContent();
         }
 
-        function downloadLocalBackupJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `academic_backup_${new Date().toISOString().split('T')[0]}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-            showToast("تم تنزيل ملف النسخة الاحتياطية!");
+        async function deleteClassItem(classId) {
+            if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المرحلة والشعبة؟")) return;
+
+            appState.classes = appState.classes.filter(c => c.id !== classId);
+            await syncStateToCloud();
+            showToast("تم حذف المرحلة والشعبة بنجاح!");
+            triggerAction('add_class');
+            updateStatsBar();
+            renderContent();
         }
 
-        // --- Registered Students Edit Management ---
+        // --- 2. إدارة الطلبة المسجلين (تعديل وحذف) ---
         function renderRegisteredStudentsList(container) {
             let studentRows = appState.students.map(s => `
                 <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2 flex justify-between items-center" id="std-card-${s.id}">
@@ -3224,19 +3220,38 @@
                             <span><i class="fa-brands fa-whatsapp text-emerald-500"></i> ${s.phone || 'غير مسجل'}</span>
                         </div>
                     </div>
-                    <button onclick="editStudentData(${s.id})" class="bg-slate-900 text-amber-400 px-3 py-1.5 rounded-xl font-bold text-[10px] hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                        <span>تعديل</span>
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="editStudentData(${s.id})" class="bg-slate-900 text-amber-400 px-2.5 py-1 rounded-xl font-bold text-[10px] hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>تعديل</span>
+                        </button>
+                        <button onclick="deleteStudentData(${s.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-bold text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                 </div>
             `).join('');
 
             container.innerHTML = `
                 <div class="space-y-2">
-                    <p class="text-[10px] text-slate-500 font-bold mb-2">يمكنك التعديل مباشرة على الاسم، المرحلة، الشعبة ورقم الواتساب لأي طالب مسجل:</p>
-                    <div class="max-h-80 overflow-y-auto custom-scroll">${studentRows}</div>
+                    <p class="text-[10px] text-slate-500 font-bold mb-2">يمكنك التعديل مباشرة على قيد الطالب أو حذفه نهائياً من النظام:</p>
+                    <div class="max-h-80 overflow-y-auto custom-scroll">${studentRows || '<p class="text-xs text-center text-slate-400 py-3">لا يوجد طلبة مسجلين حالياً</p>'}</div>
                 </div>
             `;
+        }
+
+        async function deleteStudentData(studentId) {
+            let s = appState.students.find(st => st.id === studentId);
+            if (!s) return;
+
+            if (!confirm(`هل أنت متأكد من رغبتك في حذف الطالب (${s.name}) نهائياً من النظام وجميع السجلات؟`)) return;
+
+            appState.students = appState.students.filter(st => st.id !== studentId);
+            await syncStateToCloud();
+            showToast("تم حذف قيد الطالب بنجاح!");
+            triggerAction('manage_registered_students');
+            updateStatsBar();
+            renderContent();
         }
 
         function editStudentData(studentId) {
@@ -3294,6 +3309,118 @@
             await syncStateToCloud();
             showToast("تم تعديل بيانات الطالب بنجاح!");
             triggerAction('manage_registered_students');
+            renderContent();
+        }
+
+        // --- 3. إدارة المواد الدراسية (إضافة، تعديل، وحذف) ---
+        function renderSubjectsManagement(container) {
+            let classDropdowns = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+            let subjectRows = appState.subjects.map(sub => `
+                <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
+                    <div>
+                        <h5 class="font-extrabold text-xs text-slate-800">${sub.name}</h5>
+                        <span class="text-[10px] text-slate-400 font-medium">مرتبطة بـ: ${sub.class || 'عام'}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="editSubjectItem(${sub.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
+                            <i class="fa-solid fa-pen"></i>
+                            <span>تعديل</span>
+                        </button>
+                        <button onclick="deleteSubjectItem(${sub.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-black text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-3 bg-rose-50/70 border border-rose-100 rounded-2xl">
+                        <h4 class="font-black text-xs text-rose-950 mb-2">إضافة مادة جديدة:</h4>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">اسم المادة الجامعية:</label>
+                                <input id="inp-sub-name" type="text" placeholder="مثال: تراكيب البيانات" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">المرحلة المرتبطة بالمادة:</label>
+                                <select id="inp-sub-class" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                                    ${classDropdowns}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-1">
+                        <h4 class="font-bold text-xs text-slate-700 mb-2">المواد الدراسية المسجلة (إمكانية التعديل والحذف):</h4>
+                        <div class="max-h-56 overflow-y-auto custom-scroll space-y-1">${subjectRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مواد مسجلة</p>'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function editSubjectItem(subjectId) {
+            let sub = appState.subjects.find(s => s.id === subjectId);
+            if (!sub) return;
+
+            let classDropdowns = appState.classes.map(c => `<option value="${c.name}" ${sub.class === c.name ? 'selected' : ''}>${c.name}</option>`).join('');
+
+            let container = document.getElementById('modal-body');
+            container.innerHTML = `
+                <div class="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+                    <p class="text-[10px] font-bold text-slate-800">تعديل المادة: ${sub.name}</p>
+                </div>
+                <div class="space-y-2.5">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المادة الجامعية:</label>
+                        <input id="edit-sub-name" type="text" value="${sub.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة المرتبطة بالمادة:</label>
+                        <select id="edit-sub-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                            ${classDropdowns}
+                        </select>
+                    </div>
+                    <div class="pt-2 flex gap-2">
+                        <button onclick="saveUpdatedSubjectItem(${sub.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
+                        <button onclick="triggerAction('add_subject')" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إلغاء</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveUpdatedSubjectItem(subjectId) {
+            let sub = appState.subjects.find(s => s.id === subjectId);
+            if (!sub) return;
+
+            let newName = document.getElementById('edit-sub-name').value.trim();
+            let newClass = document.getElementById('edit-sub-class').value;
+
+            if (!newName) {
+                showToast("الرجاء إدخال اسم المادة", "error");
+                return;
+            }
+
+            sub.name = newName;
+            sub.class = newClass;
+
+            await syncStateToCloud();
+            showToast("تم تعديل بيانات المادة الدراسية بنجاح!");
+            triggerAction('add_subject');
+            updateStatsBar();
+            renderContent();
+        }
+
+        async function deleteSubjectItem(subjectId) {
+            if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المادة الدراسية؟")) return;
+
+            appState.subjects = appState.subjects.filter(s => s.id !== subjectId);
+            await syncStateToCloud();
+            showToast("تم حذف المادة الدراسية بنجاح!");
+            triggerAction('add_subject');
+            updateStatsBar();
             renderContent();
         }
 
@@ -3427,7 +3554,9 @@
                 try {
                     const parsed = JSON.parse(cached);
                     if (parsed && parsed.students) {
+                        const cloudCfg = appState.supabaseConfig;
                         appState = parsed;
+                        appState.supabaseConfig = cloudCfg;
                     }
                 } catch(e){}
             }
