@@ -338,16 +338,15 @@
                 logo: ""
             },
             classes: [
-                { id: 1, name: "المرحلة الأولى", section: "أ", count: 32 },
-                { id: 2, name: "المرحلة الأولى", section: "ب", count: 28 },
-                { id: 3, name: "المرحلة الثانية", section: "أ", count: 30 },
-                { id: 4, name: "المرحلة الثالثة", section: "أ", count: 25 }
+                { id: 1, name: "المرحلة الأولى", section: "أ", studyType: "صباحي", count: 32 },
+                { id: 2, name: "المرحلة الأولى", section: "ب", studyType: "صباحي", count: 28 },
+                { id: 3, name: "المرحلة الثانية", section: "أ", studyType: "صباحي", count: 30 },
+                { id: 4, name: "المرحلة الثالثة", section: "أ", studyType: "مسائي", count: 25 }
             ],
             students: [
                 { 
                     id: 1, 
                     name: "أحمد محمد كريم", 
-                    phone: "07712345678", 
                     class: "المرحلة الأولى", 
                     section: "أ", 
                     year: "2025-2026", 
@@ -371,7 +370,6 @@
                 { 
                     id: 2, 
                     name: "حسين علي جاسم", 
-                    phone: "07823456789", 
                     class: "المرحلة الأولى", 
                     section: "أ", 
                     year: "2025-2026", 
@@ -397,7 +395,6 @@
                 { 
                     id: 3, 
                     name: "زينب عباس حسن", 
-                    phone: "07934567890", 
                     class: "المرحلة الأولى", 
                     section: "أ", 
                     year: "2025-2026", 
@@ -418,7 +415,6 @@
                 { 
                     id: 4, 
                     name: "سجاد كاظم عبد", 
-                    phone: "07745678901", 
                     class: "المرحلة الأولى", 
                     section: "ب", 
                     year: "2025-2026", 
@@ -444,7 +440,6 @@
                 { 
                     id: 5, 
                     name: "فاطمة مهدي صالح", 
-                    phone: "07856789012", 
                     class: "المرحلة الثانية", 
                     section: "أ", 
                     year: "2025-2026", 
@@ -467,7 +462,6 @@
                 { 
                     id: 6, 
                     name: "مصطفى رافد جاسم", 
-                    phone: "07799887766", 
                     class: "المرحلة الأولى", 
                     section: "ب", 
                     year: "2025-2026", 
@@ -498,9 +492,9 @@
                 { id: 3, name: "الرياضيات الهندسية", class: "المرحلة الأولى", teacher: "د. أحمد علي" }
             ],
             schedule: [
-                { day: "الأحد", period: 1, subject: "برمجة الحاسوب I", className: "المرحلة الأولى (أ)", time: "08:30 - 10:30", hall: "قاعة الخوارزمي" },
-                { day: "الأحد", period: 2, subject: "تراكيب البيانات", className: "المرحلة الثانية (أ)", time: "10:30 - 12:30", hall: "مختبر البرمجيات 2" },
-                { day: "الإثنين", period: 1, subject: "برمجة الحاسوب I", className: "المرحلة الأولى (ب)", time: "08:30 - 10:30", hall: "قاعة البيروني" }
+                { id: 1, day: "الأحد", subject: "برمجة الحاسوب I", className: "المرحلة الأولى (أ)", time: "08:30 - 10:30", hall: "قاعة الخوارزمي" },
+                { id: 2, day: "الأحد", subject: "تراكيب البيانات", className: "المرحلة الثانية (أ)", time: "10:30 - 12:30", hall: "مختبر البرمجيات 2" },
+                { id: 3, day: "الإثنين", subject: "برمجة الحاسوب I", className: "المرحلة الأولى (ب)", time: "08:30 - 10:30", hall: "قاعة البيروني" }
             ],
             attendanceRecord: {},
             savedSessions: [
@@ -635,10 +629,10 @@
                 subtitle: "إدارة قيود الطلبة، المراحل الدراسية، والبيانات والمسجلين",
                 icon: "fa-graduation-cap",
                 cards: [
-                    { title: "إدارة المراحل والشعب", desc: "إضافة، تعديل، وحذف المراحل والشعب وإحصائيات القيد", icon: "fa-layer-group", colorBg: "bg-indigo-50 text-indigo-600 border-indigo-100", action: "add_class" },
-                    { title: "تسجيل طالب جديد", desc: "إضافة طالب بالاسم الرباعي، والمرحلة (رقم الهاتف اختياري)", icon: "fa-user-plus", colorBg: "bg-emerald-50 text-emerald-600 border-emerald-100", action: "add_student" },
-                    { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين (الاسم، المرحلة، الشعبة، ورقم الواتساب)", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
-                    { title: "استيراد القوائم بالجملة", desc: "إدخال قائمة أسماء الوجبات بأسلوب النسخ واللصق", icon: "fa-file-import", colorBg: "bg-sky-50 text-sky-600 border-sky-100", action: "import_students" },
+                    { title: "إدارة المراحل والشعب", desc: "إضافة، تعديل، وحذف المراحل والشعب (صباحي/مسائي)", icon: "fa-layer-group", colorBg: "bg-indigo-50 text-indigo-600 border-indigo-100", action: "add_class" },
+                    { title: "تسجيل طالب جديد", desc: "إضافة طالب بالاسم الرباعي والمرحلة والشعبة", icon: "fa-user-plus", colorBg: "bg-emerald-50 text-emerald-600 border-emerald-100", action: "add_student" },
+                    { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين (الاسم، المرحلة، والشعبة)", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
+                    { title: "استيراد أسماء الطلبة", desc: "إدخال قائمة أسماء الطلبة بالجملة حسب المرحلة والشعبة", icon: "fa-file-import", colorBg: "bg-sky-50 text-sky-600 border-sky-100", action: "import_students" },
                     { title: "إضافة مادة دراسية", desc: "إضافة، تعديل، وحذف المواد الدراسية وربطها بالمراحل", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
                 ]
             },
@@ -652,14 +646,14 @@
             {
                 index: 3,
                 title: "جدول المحاضرات",
-                subtitle: "تنظيم جدول المحاضرات الأسبوعي للأستاذ حسب القاعات والأيام",
+                subtitle: "تنظيم جدول المحاضرات الأسبوعي للأستاذ حسب القاعات والأوقات",
                 icon: "fa-calendar-days",
                 isSchedule: true
             },
             {
                 index: 4,
                 title: "تسجيل الحضور والغياب",
-                subtitle: "تسجيل الحضور والغياب والإجازات وتعديل الجلسات المحفوظة",
+                subtitle: "تسجيل الحضور والغياب والإجازات وإمكانية حذف وتعديل الجلسات",
                 icon: "fa-user-check",
                 isAttendance: true
             },
@@ -791,6 +785,22 @@
                     </div>
 
                     <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80 space-y-2">
+                        <!-- بطاقة ربط Supabase -->
+                        <div onclick="triggerAction('edit_supabase_config')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-emerald-100 bg-emerald-50/30">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs"><i class="fa-solid fa-database"></i></div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-xs text-slate-800">الربط مع قاعدة بيانات Supabase</h4>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400">حفظ سحابي لحظي لكل البيانات والدرجات والغيابات</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${appState.supabaseConfig.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                ${appState.supabaseConfig.connected ? 'مفعل' : 'إعداد'}
+                            </span>
+                        </div>
+
                         <div onclick="triggerAction('edit_school_info')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm"><i class="fa-solid fa-pen-to-square"></i></div>
@@ -1005,7 +1015,9 @@
                         scheduleHtml += `
                             <div class="bg-slate-50/80 rounded-2xl p-2.5 mb-2 border border-slate-100 flex justify-between items-center">
                                 <div class="flex items-center gap-2.5">
-                                    <div class="w-8 h-8 rounded-xl bg-slate-900 text-amber-400 font-black flex items-center justify-center text-xs shadow-xs">${item.period}</div>
+                                    <div class="w-8 h-8 rounded-xl bg-slate-900 text-amber-400 font-black flex items-center justify-center text-xs shadow-xs">
+                                        <i class="fa-regular fa-clock"></i>
+                                    </div>
                                     <div>
                                         <h4 class="font-bold text-slate-900 text-xs">${item.subject} <span class="text-[11px] text-slate-500 font-medium">(${item.className})</span></h4>
                                         <div class="flex items-center gap-2.5 mt-0.5 text-[10px] text-slate-500">
@@ -1014,7 +1026,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button onclick="deleteScheduleItem(${item.period}, '${day}')" class="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors">
+                                <button onclick="deleteScheduleItem(${item.id})" class="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors">
                                     <i class="fa-solid fa-trash-can text-[10px]"></i>
                                 </button>
                             </div>
@@ -1038,10 +1050,15 @@
                         <h5 class="font-extrabold text-xs text-slate-800">${sess.className} (${sess.section}) | ${sess.subject}</h5>
                         <span class="text-[10px] text-slate-400 font-medium">تاريخ الجلسة: ${sess.date}</span>
                     </div>
-                    <button onclick="editSavedSession(${sess.id})" class="bg-amber-500 text-slate-900 font-extrabold text-[10px] px-3 py-1.5 rounded-xl shadow-xs hover:bg-amber-400 transition-all flex items-center gap-1">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                        <span>تعديل الجلسة</span>
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="editSavedSession(${sess.id})" class="bg-amber-500 text-slate-900 font-extrabold text-[10px] px-2.5 py-1.5 rounded-xl shadow-xs hover:bg-amber-400 transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>تعديل</span>
+                        </button>
+                        <button onclick="deleteSavedSession(${sess.id})" class="bg-rose-50 text-rose-600 border border-rose-200 font-extrabold text-[10px] px-2 py-1.5 rounded-xl hover:bg-rose-100 transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                 </div>
             `).join('');
 
@@ -1082,11 +1099,19 @@
                 <div class="mt-4 bg-slate-100/80 rounded-3xl p-3.5 border border-slate-200">
                     <h4 class="font-extrabold text-xs text-slate-800 mb-2.5 flex items-center gap-1.5">
                         <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
-                        <span>جلسات الحضور المحفوظة (إمكانية التعديل):</span>
+                        <span>جلسات الحضور المحفوظة (إمكانية التعديل والحذف):</span>
                     </h4>
                     <div id="saved-sessions-list">${savedSessionsHtml || '<p class="text-[11px] text-slate-400 text-center py-2">لا توجد جلسات محفوظة حاليًا</p>'}</div>
                 </div>
             `;
+        }
+
+        async function deleteSavedSession(sessId) {
+            if (!confirm("هل أنت متأكد من رغبتك في حذف جلسة الحضور هذه نهائياً؟")) return;
+            appState.savedSessions = appState.savedSessions.filter(s => s.id !== sessId);
+            await syncStateToCloud();
+            showToast("تم حذف جلسة الحضور بنجاح!");
+            renderContent();
         }
 
         function loadAttendanceList(editingSession = null) {
@@ -1730,7 +1755,7 @@
             // ترويسة الطباعة الرسمية
             function getPrintableHeader(stageId) {
                 let logoHtml = appState.schoolInfo.logo 
-                    ? `<img src="${appState.schoolInfo.logo}" class="w-16 h-16 object-contain">`
+                    ? `<img src="${appState.schoolInfo.logo}" class="w-16 h-16 object-contain rounded-xl">`
                     : `<div class="w-14 h-14 rounded-2xl border-2 border-slate-800 flex items-center justify-center text-slate-800 text-2xl font-black"><i class="fa-solid fa-graduation-cap"></i></div>`;
 
                 return `
@@ -1829,7 +1854,6 @@
                                     <th class="p-2 text-center">#</th>
                                     <th class="p-2">اسم الطالب</th>
                                     <th class="p-2 text-center">الحالة</th>
-                                    <th class="p-2 text-center">الهاتف</th>
                                 </tr>
                             </thead>
                             <tbody id="absence-list-report-body"></tbody>
@@ -2052,7 +2076,6 @@
                                 <tr>
                                     <th class="p-2 text-center">#</th>
                                     <th class="p-2">اسم الطالب</th>
-                                    <th class="p-2 text-center">الهاتف</th>
                                 </tr>
                             </thead>
                             <tbody id="all-students-report-body"></tbody>
@@ -2091,7 +2114,6 @@
                                 <tr>
                                     <th class="p-2 text-center">#</th>
                                     <th class="p-2">اسم الطالب</th>
-                                    <th class="p-2 text-center">الهاتف</th>
                                 </tr>
                             </thead>
                             <tbody id="sec-students-report-body"></tbody>
@@ -2368,11 +2390,10 @@
                             ${s.currentStatus}
                         </span>
                     </td>
-                    <td class="p-2 text-center text-slate-600">${s.phone || 'غير مسجل'}</td>
                 </tr>
             `).join('');
 
-            document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين في هذا التاريخ</td></tr>';
+            document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين في هذا التاريخ</td></tr>';
         }
 
         // 2. تقرير حضور يومي
@@ -2622,10 +2643,9 @@
                 <tr class="border-b border-slate-100 text-[11px]">
                     <td class="p-2 font-bold text-center">${i+1}</td>
                     <td class="p-2 font-bold text-slate-800">${s.name}</td>
-                    <td class="p-2 text-center text-slate-600">${s.phone || 'غير مسجل'}</td>
                 </tr>
             `).join('');
-            document.getElementById('all-students-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطبقين للشروط</td></tr>';
+            document.getElementById('all-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطبقين للشروط</td></tr>';
         }
 
         // 7. تقرير طلبة حسب شعبة
@@ -2645,10 +2665,9 @@
                 <tr class="border-b border-slate-100 text-[11px]">
                     <td class="p-2 font-bold text-center">${i+1}</td>
                     <td class="p-2 font-bold text-slate-800">${s.name}</td>
-                    <td class="p-2 text-center text-slate-600">${s.phone || 'غير مسجل'}</td>
                 </tr>
             `).join('');
-            document.getElementById('sec-students-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة في هذه المرحلة/الشعبة</td></tr>';
+            document.getElementById('sec-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة في هذه المرحلة/الشعبة</td></tr>';
         }
 
         // 8. درجات الشعبة كاملة
@@ -2936,7 +2955,7 @@
             `;
         }
 
-        // --- Modals Engine مع ميزات الحذف والتعديل المباشرة ---
+        // --- Modals Engine ---
         function triggerAction(actionKey) {
             currentModalType = actionKey;
             const modal = document.getElementById('action-modal');
@@ -2949,7 +2968,6 @@
             box.classList.remove('scale-95');
             box.classList.add('scale-100');
 
-            // 1. إدارة المراحل والشعب (مع إمكانية الحذف والتعديل)
             if (actionKey === 'add_class') {
                 titleEl.innerText = "إدارة المراحل والشعب الأكاديمية";
                 iconEl.className = "fa-solid fa-layer-group";
@@ -2967,10 +2985,6 @@
                             <input id="inp-std-name" type="text" placeholder="مثال: أحمد محمد كريم علي" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900 font-bold">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">رقم الواتساب / الهاتف: <span class="text-slate-400 font-medium">(اختياري)</span></label>
-                            <input id="inp-std-phone" type="text" placeholder="07xxxxxxxxx (يمكن تركه فارغاً)" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900">
-                        </div>
-                        <div>
                             <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة: <span class="text-rose-500">*</span></label>
                             <select id="inp-std-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900 font-bold">
                                 ${classDropdowns}
@@ -2979,28 +2993,37 @@
                     </div>
                 `;
             } 
-            // 2. الطلبة المسجلين في النظام (مع إمكانية التعديل والحذف)
             else if (actionKey === 'manage_registered_students') {
                 titleEl.innerText = "الطلبة المسجلين في النظام (تعديل وحذف)";
                 iconEl.className = "fa-solid fa-users-gear";
                 renderRegisteredStudentsList(bodyEl);
-            } else if (actionKey === 'import_students') {
-                titleEl.innerText = "استيراد وجبات الأسماء بالجملة";
+            } 
+            // استيراد أسماء الطلبة بدون تحديد الدراسة
+            else if (actionKey === 'import_students') {
+                titleEl.innerText = "استيراد أسماء الطلبة";
                 iconEl.className = "fa-solid fa-file-import";
+                let classDropdowns = appState.classes.map(c => `<option value="${c.name} - ${c.section}">${c.name} (شعبة ${c.section})</option>`).join('');
+
                 bodyEl.innerHTML = `
                     <div class="space-y-2.5">
-                        <p class="text-[10px] text-slate-500">الصق قوائم أسماء الطلبة هنا (اسم كل طالب في سطر مستقل):</p>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة للوجبة:</label>
+                            <select id="import-std-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
+                                ${classDropdowns}
+                            </select>
+                        </div>
+                        <p class="text-[10px] text-slate-500 font-medium">الصق قائمة أسماء الطلبة هنا (اسم كل طالب في سطر مستقل):</p>
                         <textarea id="inp-bulk-names" rows="5" placeholder="أحمد علي كاطع&#10;حسن جاسم محمد&#10;زينب حسين حمزة" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none focus:border-slate-900"></textarea>
-                        <button onclick="executeBulkImport()" class="w-full bg-sky-600 text-white py-2 rounded-xl font-bold text-xs">استيراد القائمة الآن</button>
+                        <button onclick="executeBulkImport()" class="w-full bg-sky-600 text-white py-2 rounded-xl font-bold text-xs hover:bg-sky-700 transition-colors">استيراد القائمة الآن</button>
                     </div>
                 `;
             } 
-            // 3. إضافة مادة دراسية (مع إمكانية التعديل والحذف)
             else if (actionKey === 'add_subject') {
                 titleEl.innerText = "إدارة المواد الدراسية (إضافة، تعديل، وحذف)";
                 iconEl.className = "fa-solid fa-book-bookmark";
                 renderSubjectsManagement(bodyEl);
-            } else if (actionKey === 'add_schedule_item') {
+            } 
+            else if (actionKey === 'add_schedule_item') {
                 titleEl.innerText = "إضافة محاضرة جديدة للجدول";
                 iconEl.className = "fa-solid fa-calendar-plus";
                 let subjectOptions = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
@@ -3018,14 +3041,14 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">تسلسل المحاضرة:</label>
-                            <input id="sch-period" type="number" min="1" max="6" value="1" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none">
-                        </div>
-                        <div>
                             <label class="block text-[10px] font-bold text-slate-600 mb-1">المادة الدراسية:</label>
                             <select id="sch-subject" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none">
                                 ${subjectOptions}
                             </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">وقت المحاضرة:</label>
+                            <input id="sch-time" type="text" placeholder="مثال: 08:30 - 10:30 أو 10:30 صباحاً" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة والقاعة:</label>
@@ -3057,7 +3080,7 @@
                             <input id="inp-sch-year" type="text" value="${appState.schoolInfo.year}" placeholder="مثال: 2025 - 2026" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold text-slate-800">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">شعار الكلية أو الجامعة (يظهر في المنظومة والطباعة):</label>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">شعار الكلية أو الجامعة (يظهر في جميع التقارير وأوراق الطباعة):</label>
                             <div class="flex items-center gap-3">
                                 <div id="logo-preview-box" class="w-12 h-12 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
                                     ${appState.schoolInfo.logo ? `<img src="${appState.schoolInfo.logo}" class="w-full h-full object-contain">` : `<i class="fa-solid fa-image text-slate-300"></i>`}
@@ -3094,13 +3117,13 @@
             }
         }
 
-        // --- 1. إدارة المراحل والشعب (عرض، تعديل، وحذف) ---
+        // 1. إدارة المراحل والشعب
         function renderClassesManagement(container) {
             let classRows = appState.classes.map(c => `
                 <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
                     <div>
                         <h5 class="font-extrabold text-xs text-slate-800">${c.name} - شعبة (${c.section})</h5>
-                        <span class="text-[10px] text-slate-400 font-medium">${c.count || 0} طالب مقيد</span>
+                        <span class="text-[10px] text-slate-400 font-medium">نوع الدراسة: <strong>${c.studyType || 'صباحي'}</strong> | ${c.count || 0} طالب</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <button onclick="editClassItem(${c.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
@@ -3118,20 +3141,27 @@
                 <div class="space-y-3">
                     <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
                         <h4 class="font-black text-xs text-indigo-950 mb-2">إضافة مرحلة وشعبة جديدة:</h4>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-3 gap-1.5">
                             <div>
-                                <label class="block text-[9px] font-bold text-slate-600 mb-1">اسم المرحلة الأكاديمية:</label>
-                                <input id="inp-class-name" type="text" placeholder="مثال: المرحلة الأولى" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">المرحلة:</label>
+                                <input id="inp-class-name" type="text" placeholder="المرحلة الأولى" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
                             </div>
                             <div>
                                 <label class="block text-[9px] font-bold text-slate-600 mb-1">الشعبة:</label>
-                                <input id="inp-class-section" type="text" placeholder="مثال: أ أو ب" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                                <input id="inp-class-section" type="text" placeholder="أ" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">الدراسة:</label>
+                                <select id="inp-class-study" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
+                                    <option value="صباحي">صباحي</option>
+                                    <option value="مسائي">مسائي</option>
+                                </select>
                             </div>
                         </div>
                     </div>
 
                     <div class="pt-1">
-                        <h4 class="font-bold text-xs text-slate-700 mb-2">المراحل والشعب المضافة حالياً (إمكانية التعديل والحذف):</h4>
+                        <h4 class="font-bold text-xs text-slate-700 mb-2">المراحل والشعب المضافة حالياً:</h4>
                         <div class="max-h-60 overflow-y-auto custom-scroll space-y-1">${classRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مراحل مسجلة</p>'}</div>
                     </div>
                 </div>
@@ -3157,6 +3187,13 @@
                         <label class="block text-[10px] font-bold text-slate-600 mb-1">الشعبة:</label>
                         <input id="edit-cls-section" type="text" value="${cls.section}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
                     </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">نوع الدراسة:</label>
+                        <select id="edit-cls-study" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                            <option value="صباحي" ${(cls.studyType === 'صباحي') ? 'selected' : ''}>صباحي</option>
+                            <option value="مسائي" ${(cls.studyType === 'مسائي') ? 'selected' : ''}>مسائي</option>
+                        </select>
+                    </div>
                     <div class="pt-2 flex gap-2">
                         <button onclick="saveUpdatedClassItem(${cls.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
                         <button onclick="triggerAction('add_class')" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إلغاء</button>
@@ -3171,6 +3208,7 @@
 
             let newName = document.getElementById('edit-cls-name').value.trim();
             let newSec = document.getElementById('edit-cls-section').value.trim();
+            let newStudy = document.getElementById('edit-cls-study').value;
 
             if (!newName || !newSec) {
                 showToast("الرجاء ملء اسم المرحلة والشعبة", "error");
@@ -3182,8 +3220,8 @@
 
             cls.name = newName;
             cls.section = newSec;
+            cls.studyType = newStudy;
 
-            // تحديث بيانات الطلبة المرتبطين بهذه المرحلة
             appState.students.forEach(st => {
                 if (st.class === oldName && st.section === oldSec) {
                     st.class = newName;
@@ -3209,7 +3247,7 @@
             renderContent();
         }
 
-        // --- 2. إدارة الطلبة المسجلين (تعديل وحذف) ---
+        // 2. إدارة الطلبة المسجلين
         function renderRegisteredStudentsList(container) {
             let studentRows = appState.students.map(s => `
                 <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2 flex justify-between items-center" id="std-card-${s.id}">
@@ -3217,7 +3255,6 @@
                         <h5 class="font-extrabold text-xs text-slate-800">${s.name}</h5>
                         <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
                             <span><i class="fa-solid fa-layer-group text-indigo-500"></i> ${s.class} (${s.section})</span>
-                            <span><i class="fa-brands fa-whatsapp text-emerald-500"></i> ${s.phone || 'غير مسجل'}</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -3244,7 +3281,7 @@
             let s = appState.students.find(st => st.id === studentId);
             if (!s) return;
 
-            if (!confirm(`هل أنت متأكد من رغبتك في حذف الطالب (${s.name}) نهائياً من النظام وجميع السجلات؟`)) return;
+            if (!confirm(`هل أنت متأكد من رغبتك في حذف الطالب (${s.name}) نهائياً من النظام؟`)) return;
 
             appState.students = appState.students.filter(st => st.id !== studentId);
             await syncStateToCloud();
@@ -3277,10 +3314,6 @@
                             ${classOptions}
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-600 mb-1">رقم الواتساب / الهاتف (اختياري):</label>
-                        <input id="edit-std-phone" type="text" value="${s.phone || ''}" placeholder="يمكن تركه فارغاً" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none focus:border-slate-900">
-                    </div>
                     <div class="pt-2 flex gap-2">
                         <button onclick="saveUpdatedStudentData(${s.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديلات</button>
                         <button onclick="triggerAction('manage_registered_students')" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إلغاء</button>
@@ -3295,7 +3328,6 @@
 
             let newName = document.getElementById('edit-std-name').value;
             let classVal = document.getElementById('edit-std-class').value;
-            let newPhone = document.getElementById('edit-std-phone').value;
 
             if (!newName.trim()) { showToast("الرجاء إدخال الاسم", "error"); return; }
 
@@ -3304,7 +3336,6 @@
             s.name = newName.trim();
             s.class = className.trim();
             s.section = (sectionPart || "أ").trim();
-            s.phone = newPhone.trim();
 
             await syncStateToCloud();
             showToast("تم تعديل بيانات الطالب بنجاح!");
@@ -3312,7 +3343,7 @@
             renderContent();
         }
 
-        // --- 3. إدارة المواد الدراسية (إضافة، تعديل، وحذف) ---
+        // 3. إدارة المواد الدراسية
         function renderSubjectsManagement(container) {
             let classDropdowns = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
 
@@ -3353,7 +3384,7 @@
                     </div>
 
                     <div class="pt-1">
-                        <h4 class="font-bold text-xs text-slate-700 mb-2">المواد الدراسية المسجلة (إمكانية التعديل والحذف):</h4>
+                        <h4 class="font-bold text-xs text-slate-700 mb-2">المواد الدراسية المسجلة:</h4>
                         <div class="max-h-56 overflow-y-auto custom-scroll space-y-1">${subjectRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مواد مسجلة</p>'}</div>
                     </div>
                 </div>
@@ -3436,20 +3467,19 @@
             if (currentModalType === 'add_class') {
                 const name = document.getElementById('inp-class-name').value;
                 const section = document.getElementById('inp-class-section').value;
+                const studyType = document.getElementById('inp-class-study').value;
                 if (!name || !section) { showToast("الرجاء إدخال البيانات المطلوبة", "error"); return; }
-                appState.classes.push({ id: Date.now(), name, section, count: 0 });
+                appState.classes.push({ id: Date.now(), name, section, studyType, count: 0 });
                 showToast("تمت إضافة المرحلة والشعبة بنجاح");
             } 
             else if (currentModalType === 'add_student') {
                 const name = document.getElementById('inp-std-name').value;
-                const phone = document.getElementById('inp-std-phone').value || "";
                 const classVal = document.getElementById('inp-std-class').value;
                 if (!name.trim()) { showToast("الرجاء إدخال اسم الطالب", "error"); return; }
                 const [className, sectionPart] = classVal.split(" - ");
                 appState.students.push({ 
                     id: Date.now(), 
                     name: name.trim(), 
-                    phone: phone.trim(), 
                     class: className, 
                     section: sectionPart || "أ", 
                     year: appState.schoolInfo.year, 
@@ -3473,11 +3503,11 @@
                 showToast("تمت إضافة المادة الدراسية بنجاح");
             } else if (currentModalType === 'add_schedule_item') {
                 const day = document.getElementById('sch-day').value;
-                const period = parseInt(document.getElementById('sch-period').value);
                 const subject = document.getElementById('sch-subject').value;
+                const time = document.getElementById('sch-time').value || "08:30 - 10:30";
                 const className = document.getElementById('sch-class').value || "المرحلة الأولى (أ)";
 
-                appState.schedule.push({ day, period, subject, className, time: "08:30 - 10:30", hall: "قاعة عامة" });
+                appState.schedule.push({ id: Date.now(), day, subject, className, time: time, hall: "قاعة عامة" });
                 showToast("تمت إضافة المحاضرة للجدول");
             } 
             else if (currentModalType === 'edit_school_info') {
@@ -3496,9 +3526,14 @@
             renderContent();
         }
 
+        // استيراد أسماء الطلبة بالجملة
         async function executeBulkImport() {
             const text = document.getElementById('inp-bulk-names').value;
+            const classVal = document.getElementById('import-std-class').value;
+
             if (!text.trim()) { showToast("الرجاء إدخال الأسماء أولاً", "error"); return; }
+            const [className, sectionPart] = classVal.split(" - ");
+
             const lines = text.split('\n');
             let added = 0;
             lines.forEach(line => {
@@ -3506,12 +3541,11 @@
                     appState.students.push({
                         id: Date.now() + Math.random(),
                         name: line.trim(),
-                        phone: "",
-                        class: "المرحلة الأولى",
-                        section: "أ",
+                        class: className,
+                        section: sectionPart || "أ",
                         year: appState.schoolInfo.year,
                         behavior: "مميز",
-                        note: "مستورد سحابياً",
+                        note: "مستورد",
                         t1Exam: 0, t1Eval: 0,
                         t2Exam: 0, t2Eval: 0,
                         final: 0,
@@ -3529,11 +3563,40 @@
             renderContent();
         }
 
-        async function deleteScheduleItem(period, day) {
-            appState.schedule = appState.schedule.filter(s => !(s.period === period && s.day === day));
+        async function deleteScheduleItem(itemId) {
+            appState.schedule = appState.schedule.filter(s => s.id !== itemId);
             await syncStateToCloud();
             showToast("تم حذف المحاضرة من الجدول");
             renderContent();
+        }
+
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                appState.schoolInfo.logo = e.target.result;
+                const box = document.getElementById('logo-preview-box');
+                if (box) {
+                    box.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain">`;
+                }
+                updateStatsBar();
+                await syncStateToCloud();
+                showToast("تم تحميل واعتماد شعار الكلية بنجاح!");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function downloadLocalBackupJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `academic_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast("تم تنزيل ملف النسخة الاحتياطية!");
         }
 
         function showToast(msg, type = "success") {
