@@ -162,15 +162,12 @@
         
         <!-- Top Dynamic Header -->
         <div id="app-header" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white px-5 pt-8 pb-5 rounded-b-[32px] shadow-xl transition-all duration-300 relative overflow-hidden flex-shrink-0 border-b border-white/10">
-            <!-- Background Icon Watermark -->
             <div class="absolute -left-6 -bottom-8 opacity-10 text-9xl pointer-events-none transform -rotate-12">
                 <i id="header-bg-icon" class="fa-solid fa-graduation-cap"></i>
             </div>
             
-            <!-- Top Status Row -->
             <div class="flex justify-between items-center z-10 relative">
                 <div class="flex items-center gap-3">
-                    <!-- تم تثبيت الأيقونة والصورة معاً لحمايتها من الانهيار عند التنقل -->
                     <div id="header-logo-container" class="w-11 h-11 rounded-2xl bg-amber-500/20 flex items-center justify-center border border-amber-400/40 shadow-inner overflow-hidden flex-shrink-0 relative">
                         <img id="header-logo-img" src="" class="w-full h-full object-cover hidden">
                         <i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-lg"></i>
@@ -181,14 +178,12 @@
                     </div>
                 </div>
 
-                <!-- مؤشر حالة الربط السحابي مع Supabase -->
                 <div id="supabase-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
                     <span id="supabase-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
                     <span id="supabase-status-text">سحابي غير متصل</span>
                 </div>
             </div>
 
-            <!-- Header Dynamic Title Block -->
             <div class="mt-4 z-10 relative">
                 <h1 id="header-title" class="text-xl font-black text-white tracking-tight flex items-center gap-2">
                     المراحل والطلبة
@@ -198,7 +193,6 @@
                 </p>
             </div>
 
-            <!-- Dynamic Sub Stats Bar -->
             <div id="header-stats-bar" class="mt-3 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] text-slate-300">
                 <div class="flex items-center gap-1.5">
                     <i class="fa-solid fa-users text-amber-400 text-xs"></i>
@@ -222,8 +216,6 @@
 
         <!-- Bottom Navigation Dock (7 Tabs) -->
         <div class="bottom-dock absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-0.5 py-2 flex justify-around items-center z-30 shadow-[0_-8px_25px_rgba(0,0,0,0.08)] flex-shrink-0">
-            
-            <!-- Tab 0: الإعدادات -->
             <button onclick="switchTab(0)" id="tab-0" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-gear text-xs sm:text-sm"></i>
@@ -231,7 +223,6 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">الإعدادات</span>
             </button>
 
-            <!-- Tab 1: المراحل والطلبة -->
             <button onclick="switchTab(1)" id="tab-1" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-graduation-cap text-xs sm:text-sm"></i>
@@ -239,7 +230,6 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">الطلبة</span>
             </button>
 
-            <!-- Tab 2: السلوك والمتابعة -->
             <button onclick="switchTab(2)" id="tab-2" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-star text-xs sm:text-sm"></i>
@@ -247,7 +237,6 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">المتابعة</span>
             </button>
 
-            <!-- Tab 3: جدول المحاضرات -->
             <button onclick="switchTab(3)" id="tab-3" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-calendar-days text-xs sm:text-sm"></i>
@@ -255,7 +244,6 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">الجدول</span>
             </button>
 
-            <!-- Tab 4: الحضور والغياب -->
             <button onclick="switchTab(4)" id="tab-4" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-user-check text-xs sm:text-sm"></i>
@@ -263,7 +251,6 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">الحضور</span>
             </button>
 
-            <!-- Tab 5: الدرجات والنتائج -->
             <button onclick="switchTab(5)" id="tab-5" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-award text-xs sm:text-sm"></i>
@@ -271,19 +258,16 @@
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">الدرجات</span>
             </button>
 
-            <!-- Tab 6: التقارير الأكاديمية -->
             <button onclick="switchTab(6)" id="tab-6" class="flex flex-col items-center flex-1 py-1 transition-all group">
                 <div class="tab-icon-box w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center transition-all duration-300">
                     <i class="fa-solid fa-chart-pie text-xs sm:text-sm"></i>
                 </div>
                 <span class="text-[8px] sm:text-[9px] font-bold mt-0.5 truncate w-full text-center transition-colors">التقارير</span>
             </button>
-
         </div>
-
     </div>
 
-    <!-- Action Modal / Dialog Container -->
+    <!-- Action Modal -->
     <div id="action-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300 p-3">
         <div class="bg-white w-full max-w-md rounded-[32px] p-5 shadow-2xl transform scale-95 transition-all duration-300 flex flex-col max-h-[92vh] border border-slate-100" id="modal-box">
             
@@ -303,7 +287,7 @@
             </div>
 
             <div id="modal-body" class="overflow-y-auto custom-scroll flex-1 py-1 space-y-3">
-                <!-- Inputs and Tables injected dynamically -->
+                <!-- Content Injected Dynamically -->
             </div>
 
             <div class="no-print mt-4 pt-3 border-t border-slate-100 flex gap-2.5 modal-footer-btns" id="modal-footer">
@@ -325,7 +309,7 @@
     </div>
 
     <script>
-        // --- Central Academic Database for University Professor ---
+        // --- Central Database State ---
         let appState = {
             supabaseConfig: {
                 url: "https://blqyoglxoooybnrjivmm.supabase.co",
@@ -361,9 +345,7 @@
                     attendanceCount: 14, 
                     absenceCount: 1,
                     excusedCount: 0,
-                    absenceLog: [
-                        { date: "2026-09-15", day: "الثلاثاء", status: "غائب" }
-                    ],
+                    absenceLog: [{ date: "2026-09-15", day: "الثلاثاء", status: "غائب" }],
                     behaviorLog: [
                         { mark: "مميز", stage: "المرحلة الأولى", section: "أ", subject: "برمجة الحاسوب I", date: "2026-09-20" },
                         { mark: "مميز", stage: "المرحلة الأولى", section: "أ", subject: "البرمجيات", date: "2026-09-27" }
@@ -390,9 +372,7 @@
                         { date: "2026-09-24", day: "الخميس", status: "مجاز" },
                         { date: "2026-10-01", day: "الخميس", status: "غائب" }
                     ],
-                    behaviorLog: [
-                        { mark: "متوسط", stage: "المرحلة الأولى", section: "أ", subject: "البرمجيات", date: "2026-09-15" }
-                    ]
+                    behaviorLog: [{ mark: "متوسط", stage: "المرحلة الأولى", section: "أ", subject: "البرمجيات", date: "2026-09-15" }]
                 },
                 { 
                     id: 3, 
@@ -410,9 +390,7 @@
                     absenceCount: 0,
                     excusedCount: 0,
                     absenceLog: [],
-                    behaviorLog: [
-                        { mark: "مميز", stage: "المرحلة الأولى", section: "أ", subject: "البرمجيات", date: "2026-09-22" }
-                    ]
+                    behaviorLog: [{ mark: "مميز", stage: "المرحلة الأولى", section: "أ", subject: "البرمجيات", date: "2026-09-22" }]
                 },
                 { 
                     id: 4, 
@@ -435,9 +413,7 @@
                         { date: "2026-09-22", day: "الثلاثاء", status: "مجاز" },
                         { date: "2026-09-29", day: "الثلاثاء", status: "غائب" }
                     ],
-                    behaviorLog: [
-                        { mark: "سيء", stage: "المرحلة الأولى", section: "ب", subject: "تراكيب البيانات", date: "2026-09-18" }
-                    ]
+                    behaviorLog: [{ mark: "سيء", stage: "المرحلة الأولى", section: "ب", subject: "تراكيب البيانات", date: "2026-09-18" }]
                 },
                 { 
                     id: 5, 
@@ -454,12 +430,8 @@
                     attendanceCount: 14, 
                     absenceCount: 1,
                     excusedCount: 0,
-                    absenceLog: [
-                        { date: "2026-09-14", day: "الإثنين", status: "غائب" }
-                    ],
-                    behaviorLog: [
-                        { mark: "مميز", stage: "المرحلة الثانية", section: "أ", subject: "تراكيب البيانات", date: "2026-09-25" }
-                    ]
+                    absenceLog: [{ date: "2026-09-14", day: "الإثنين", status: "غائب" }],
+                    behaviorLog: [{ mark: "مميز", stage: "المرحلة الثانية", section: "أ", subject: "تراكيب البيانات", date: "2026-09-25" }]
                 },
                 { 
                     id: 6, 
@@ -483,9 +455,7 @@
                         { date: "2026-09-22", day: "الثلاثاء", status: "غائب" },
                         { date: "2026-09-29", day: "الثلاثاء", status: "غائب" }
                     ],
-                    behaviorLog: [
-                        { mark: "متوسط", stage: "المرحلة الأولى", section: "ب", subject: "البرمجيات", date: "2026-09-12" }
-                    ]
+                    behaviorLog: [{ mark: "متوسط", stage: "المرحلة الأولى", section: "ب", subject: "البرمجيات", date: "2026-09-12" }]
                 }
             ],
             subjects: [
@@ -519,7 +489,14 @@
         let activeGradesSubTab = 0;
         let currentModalType = "";
         let currentAttendanceMap = {};
+        let currentLoadedAttendanceStudents = [];
         let supabaseClient = null;
+        let syncTimeout = null;
+
+        // دالة الترتيب الأبجدي الموحدة للغة العربية
+        function sortStudentsAlphabetically(arr) {
+            return [...arr].sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'ar'));
+        }
 
         // --- Supabase Cloud Database Realtime Engine ---
         function initSupabase() {
@@ -563,7 +540,7 @@
                     renderContent();
                     updateStatsBar();
                 } else {
-                    await syncStateToCloud();
+                    syncStateToCloud();
                 }
 
                 if (showAlert) showToast("تم الاتصال بقاعدة بيانات Supabase بنجاح!");
@@ -593,31 +570,30 @@
             }
         }
 
-        async function syncStateToCloud() {
+        // حل مشكلة الثقل: حفظ فوري محلياً ومزامنة سحابية خفيفة في الخلفية دون تجميد واجهة التطبيق
+        function syncStateToCloud() {
             try {
                 localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
             } catch (storageError) {
-                console.warn("LocalStorage Quota Exceeded. Data saved safely in memory/cloud.", storageError);
+                console.warn("LocalStorage Quota Exceeded.", storageError);
             }
 
-            if (!supabaseClient || !appState.supabaseConfig.connected) {
-                return;
-            }
+            if (!supabaseClient || !appState.supabaseConfig.connected) return;
 
-            try {
-                const { error } = await supabaseClient
-                    .from('professor_data')
-                    .upsert({
-                        id: 'main_academic_state',
-                        data: appState,
-                        updated_at: new Date().toISOString()
-                    });
-
-                if (error) throw error;
-            } catch (err) {
-                console.warn("Realtime cloud sync error:", err);
-                setSupabaseStatus(false);
-            }
+            if (syncTimeout) clearTimeout(syncTimeout);
+            syncTimeout = setTimeout(async () => {
+                try {
+                    await supabaseClient
+                        .from('professor_data')
+                        .upsert({
+                            id: 'main_academic_state',
+                            data: appState,
+                            updated_at: new Date().toISOString()
+                        });
+                } catch (err) {
+                    console.warn("Background cloud sync error:", err);
+                }
+            }, 300);
         }
 
         // --- Tabs Specification Data ---
@@ -637,7 +613,7 @@
                 cards: [
                     { title: "إدارة المراحل والشعب", desc: "إضافة، تعديل، وحذف المراحل والشعب (صباحي/مسائي)", icon: "fa-layer-group", colorBg: "bg-indigo-50 text-indigo-600 border-indigo-100", action: "add_class" },
                     { title: "تسجيل طالب جديد", desc: "إضافة طالب بالاسم الرباعي والمرحلة والشعبة", icon: "fa-user-plus", colorBg: "bg-emerald-50 text-emerald-600 border-emerald-100", action: "add_student" },
-                    { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين (الاسم، المرحلة، والشعبة)", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
+                    { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين مرتبين أبجدياً", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
                     { title: "استيراد أسماء الطلبة", desc: "إدخال قائمة أسماء الطلبة بالجملة حسب المرحلة والشعبة", icon: "fa-file-import", colorBg: "bg-sky-50 text-sky-600 border-sky-100", action: "import_students" },
                     { title: "إضافة مادة دراسية", desc: "إضافة، تعديل، وحذف المواد الدراسية وربطها بالمراحل", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
                 ]
@@ -679,7 +655,6 @@
             }
         ];
 
-        // --- Core Tab Switch Handler مع Null-Safety كامل لمنع أي تجمد ---
         function switchTab(index) {
             activeTabIndex = index;
             const data = tabsData[index];
@@ -718,7 +693,6 @@
             renderContent();
         }
 
-        // تم إصلاح دالة تحديث الشريط العلوي لمنع مسح عنصر الأيقونة header-main-icon
         function updateStatsBar() {
             const stTot = document.getElementById('stat-total-students');
             if (stTot) stTot.innerText = appState.students.length;
@@ -747,7 +721,6 @@
             }
         }
 
-        // --- Main Render Engine ---
         function renderContent() {
             const container = document.getElementById('app-content');
             if (!container) return;
@@ -814,7 +787,6 @@
                     </div>
 
                     <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80 space-y-2">
-                        <!-- بطاقة ربط Supabase -->
                         <div onclick="triggerAction('edit_supabase_config')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-emerald-100 bg-emerald-50/30">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs"><i class="fa-solid fa-database"></i></div>
@@ -856,7 +828,7 @@
             `;
         }
 
-        // 3. Behavior Tab
+        // 3. Behavior Tab (مرتب أبجدياً)
         function renderBehaviorTab(container) {
             let stages = Array.from(new Set(appState.classes.map(c => c.name)));
             let sections = Array.from(new Set(appState.classes.map(c => c.section)));
@@ -872,7 +844,7 @@
                             <i class="fa-solid fa-award text-amber-600 text-lg"></i>
                             <div>
                                 <h4 class="font-extrabold text-xs text-slate-800">سجل النشاط والمتابعة الأكاديمية</h4>
-                                <p class="text-[10px] text-slate-500">إضافة علامة للطالب (مميز، متوسط، سيء) حسب المرحلة والشعبة والمادة والتاريخ</p>
+                                <p class="text-[10px] text-slate-500">إضافة علامة للطالب (مميز، متوسط، سيء) مرتبين أبجدياً</p>
                             </div>
                         </div>
                     </div>
@@ -926,6 +898,9 @@
                 (sec === 'all' || s.section === sec)
             );
 
+            // ترتيب أبجدي
+            filtered = sortStudentsAlphabetically(filtered);
+
             if (filtered.length === 0) {
                 container.innerHTML = `
                     <div class="bg-white rounded-3xl p-5 text-center border border-slate-200/80">
@@ -978,7 +953,7 @@
             container.innerHTML = html;
         }
 
-        async function assignStudentMark(studentId, mark) {
+        function assignStudentMark(studentId, mark) {
             const student = appState.students.find(s => s.id === studentId);
             if (!student) return;
 
@@ -1002,7 +977,7 @@
                 badge.className = `text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${mark === 'مميز' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : mark === 'متوسط' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`;
             }
 
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast(`تم إضافة علامة (${mark}) للطالب ${student.name} بنجاح!`);
         }
 
@@ -1068,7 +1043,7 @@
             container.innerHTML = scheduleHtml;
         }
 
-        // 5. Attendance Tab Rendering
+        // 5. Attendance Tab Rendering (مع إصلاح تحديد الكل والترتيب وسرعة الحفظ)
         function renderAttendanceTab(container) {
             let classOptions = appState.classes.map(c => `<option value="${c.name} - ${c.section}">${c.name} (شعبة ${c.section})</option>`).join('');
             let subjectOptions = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
@@ -1135,10 +1110,10 @@
             `;
         }
 
-        async function deleteSavedSession(sessId) {
+        function deleteSavedSession(sessId) {
             if (!confirm("هل أنت متأكد من رغبتك في حذف جلسة الحضور هذه نهائياً؟")) return;
             appState.savedSessions = appState.savedSessions.filter(s => s.id !== sessId);
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حذف جلسة الحضور بنجاح!");
             renderContent();
         }
@@ -1157,7 +1132,9 @@
             const section = sectionPart || "أ";
 
             let filteredStudents = appState.students.filter(s => s.class.trim() === className.trim() && s.section.trim() === section.trim());
-            filteredStudents.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            // الترتيب الأبجدي الدقيق
+            filteredStudents = sortStudentsAlphabetically(filteredStudents);
+            currentLoadedAttendanceStudents = filteredStudents;
 
             if (filteredStudents.length === 0) {
                 container.innerHTML = `
@@ -1187,24 +1164,24 @@
                 <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80">
                     <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
                         <div>
-                            <h4 class="font-black text-slate-800 text-xs">${sessionId ? 'تعديل جلسة حُفظت سابقًا' : 'سجل الحضور والغياب اليومي'}</h4>
+                            <h4 class="font-black text-slate-800 text-xs">${sessionId ? 'تعديل جلسة حُفظت سابقًا' : 'سجل الحضور والغياب اليومي (أبجدي)'}</h4>
                             <p class="text-[10px] text-slate-400">${className} (${section}) | ${subjectVal}</p>
                         </div>
                         <span class="text-[10px] bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-bold">${students.length} طالب</span>
                     </div>
 
                     <div class="flex gap-2 mb-3">
-                        <button onclick="setAllAttendanceStatus('present')" class="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1">
+                        <button type="button" onclick="setAllAttendanceStatus('present')" class="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 active:scale-95">
                             <i class="fa-solid fa-check-double"></i>
                             <span>تحديد الكل حاضر</span>
                         </button>
-                        <button onclick="setAllAttendanceStatus('absent')" class="flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1">
+                        <button type="button" onclick="setAllAttendanceStatus('absent')" class="flex-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 active:scale-95">
                             <i class="fa-solid fa-xmark"></i>
                             <span>تحديد الكل غائب</span>
                         </button>
                     </div>
 
-                    <div class="space-y-2">
+                    <div class="space-y-2" id="attendance-rows-box">
             `;
 
             students.forEach((st, idx) => {
@@ -1218,9 +1195,9 @@
                             </div>
                         </div>
                         <div class="flex gap-1" id="att-btns-${st.id}">
-                            <button onclick="setSingleAttendanceStatus(${st.id}, 'present')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}">حاضر</button>
-                            <button onclick="setSingleAttendanceStatus(${st.id}, 'absent')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}">غائب</button>
-                            <button onclick="setSingleAttendanceStatus(${st.id}, 'excused')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'excused' ? 'bg-amber-500 text-slate-900 shadow-xs font-extrabold' : 'bg-slate-200 text-slate-600'}">مجاز</button>
+                            <button type="button" onclick="setSingleAttendanceStatus(${st.id}, 'present')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}">حاضر</button>
+                            <button type="button" onclick="setSingleAttendanceStatus(${st.id}, 'absent')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}">غائب</button>
+                            <button type="button" onclick="setSingleAttendanceStatus(${st.id}, 'excused')" class="px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'excused' ? 'bg-amber-500 text-slate-900 shadow-xs font-extrabold' : 'bg-slate-200 text-slate-600'}">مجاز</button>
                         </div>
                     </div>
                 `;
@@ -1228,7 +1205,7 @@
 
             listHtml += `
                     </div>
-                    <button onclick="saveAttendanceRecord(${sessionId})" class="w-full mt-3.5 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5">
+                    <button type="button" onclick="saveAttendanceRecord(${sessionId})" class="w-full mt-3.5 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 active:scale-98">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span>${sessionId ? 'تحديث وحفظ الجلسة المعدلة' : 'حفظ وتسجيل المحاضرة'}</span>
                     </button>
@@ -1238,24 +1215,32 @@
             container.innerHTML = listHtml;
         }
 
+        // تم إصلاح الدالة لتحديث الحالة بدقة وتحديث مظهر الأزرار
         function setSingleAttendanceStatus(studentId, status) {
             currentAttendanceMap[studentId] = status;
             const btnBox = document.getElementById(`att-btns-${studentId}`);
             if (!btnBox) return;
             const buttons = btnBox.querySelectorAll('button');
-            buttons[0].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}`;
-            buttons[1].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}`;
-            buttons[2].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'excused' ? 'bg-amber-500 text-slate-900 shadow-xs font-extrabold' : 'bg-slate-200 text-slate-600'}`;
+            if (buttons.length >= 3) {
+                buttons[0].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}`;
+                buttons[1].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'}`;
+                buttons[2].className = `px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${status === 'excused' ? 'bg-amber-500 text-slate-900 shadow-xs font-extrabold' : 'bg-slate-200 text-slate-600'}`;
+            }
         }
 
+        // حل مشكلة "تحديد الكل غائب / حاضر" لتطبيق التحديد فورا لجميع الطلبة الظاهرين
         function setAllAttendanceStatus(status) {
-            Object.keys(currentAttendanceMap).forEach(stId => {
-                setSingleAttendanceStatus(parseInt(stId), status);
+            if (!currentLoadedAttendanceStudents || currentLoadedAttendanceStudents.length === 0) return;
+            
+            currentLoadedAttendanceStudents.forEach(st => {
+                currentAttendanceMap[st.id] = status;
+                setSingleAttendanceStatus(st.id, status);
             });
-            showToast(status === 'present' ? "تم تحديد جميع الطلبة كـ حاضر" : "تم تحديد جميع الطلبة كـ غائب");
+            showToast(status === 'present' ? "تم تحديد جميع الطلبة كـ حاضر ✓" : "تم تحديد جميع الطلبة كـ غائب ✗");
         }
 
-        async function saveAttendanceRecord(editingSessionId = null) {
+        // حل مشكلة ثقل حفظ جلسة الحضور
+        function saveAttendanceRecord(editingSessionId = null) {
             const classVal = document.getElementById('att-class-select').value;
             const subjectVal = document.getElementById('att-subject-select').value;
             const dateVal = document.getElementById('att-date-input').value;
@@ -1303,7 +1288,8 @@
                 showToast("تم تسجيل وحفظ جلسة الحضور بنجاح!");
             }
 
-            await syncStateToCloud();
+            // مزامنة سريعة وخفيفة
+            syncStateToCloud();
             renderContent();
         }
 
@@ -1319,7 +1305,7 @@
             showToast("جاري تحميل بيانات الجلسة للتعديل...");
         }
 
-        // --- 6. GRADES TAB RENDERER ---
+        // --- 6. GRADES TAB RENDERER (مرتب أبجدياً) ---
         function renderGradesTab(container) {
             let stageOptions = Array.from(new Set(appState.classes.map(c => c.name))).map(c => `<option value="${c}">${c}</option>`).join('');
             let secOptions = Array.from(new Set(appState.classes.map(c => c.section))).map(s => `<option value="${s}">شعبة ${s}</option>`).join('');
@@ -1397,6 +1383,9 @@
                 (sec === 'all' || s.section === sec)
             );
 
+            // ترتيب أبجدي في الدرجات
+            filtered = sortStudentsAlphabetically(filtered);
+
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="bg-white rounded-3xl p-5 text-center text-xs text-slate-400 font-bold">لا يوجد طلبة مطبقين للفلاتر المحددة</div>`;
                 return;
@@ -1441,7 +1430,7 @@
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
-                        <button onclick="saveTerm1Grades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5">
+                        <button onclick="saveTerm1Grades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 active:scale-98">
                             <i class="fa-solid fa-floppy-disk"></i>
                             <span>حفظ درجات الفصل الأول</span>
                         </button>
@@ -1485,7 +1474,7 @@
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
-                        <button onclick="saveTerm2Grades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5">
+                        <button onclick="saveTerm2Grades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 active:scale-98">
                             <i class="fa-solid fa-floppy-disk"></i>
                             <span>حفظ درجات الفصل الثاني</span>
                         </button>
@@ -1561,7 +1550,7 @@
                                 <tbody>${rows}</tbody>
                             </table>
                         </div>
-                        <button onclick="saveFinalGrades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5">
+                        <button onclick="saveFinalGrades()" class="w-full mt-3 bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5 active:scale-98">
                             <i class="fa-solid fa-floppy-disk"></i>
                             <span>حفظ درجات الفاينل</span>
                         </button>
@@ -1636,38 +1625,38 @@
             if (sumEl) sumEl.innerText = `${exam + evalVal}`;
         }
 
-        async function saveTerm1Grades() {
+        function saveTerm1Grades() {
             appState.students.forEach(s => {
                 let inpExam = document.getElementById(`inp-t1exam-${s.id}`);
                 let inpEval = document.getElementById(`inp-t1eval-${s.id}`);
                 if (inpExam) s.t1Exam = parseFloat(inpExam.value) || 0;
                 if (inpEval) s.t1Eval = parseFloat(inpEval.value) || 0;
             });
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حفظ درجات الفصل الأول بنجاح!");
         }
 
-        async function saveTerm2Grades() {
+        function saveTerm2Grades() {
             appState.students.forEach(s => {
                 let inpExam = document.getElementById(`inp-t2exam-${s.id}`);
                 let inpEval = document.getElementById(`inp-t2eval-${s.id}`);
                 if (inpExam) s.t2Exam = parseFloat(inpExam.value) || 0;
                 if (inpEval) s.t2Eval = parseFloat(inpEval.value) || 0;
             });
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حفظ درجات الفصل الثاني بنجاح!");
         }
 
-        async function saveFinalGrades() {
+        function saveFinalGrades() {
             appState.students.forEach(s => {
                 let inpFinal = document.getElementById(`inp-final-${s.id}`);
                 if (inpFinal) s.final = parseFloat(inpFinal.value) || 0;
             });
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حفظ درجات الفاينل بنجاح!");
         }
 
-        // --- 7. REPORTS TAB RENDERER ---
+        // --- 7. REPORTS TAB RENDERER (جميع القوائم مرتبة أبجدياً) ---
         function renderReportsTab(container) {
             container.innerHTML = `
                 <div class="space-y-3.5">
@@ -1686,7 +1675,6 @@
                         </button>
                     </div>
 
-                    <!-- 1. تقارير الطلبة Section -->
                     <div id="rep-section-students" class="space-y-2">
                         <div class="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
                             <i class="fa-solid fa-id-card text-amber-600 text-base"></i>
@@ -1699,7 +1687,6 @@
                         ${renderReportButton('students_by_year', 'قائمة حسب السنة الدراسية', 'قوائم وقيود الطلبة للعام الدراسي الحالي', 'fa-calendar-check', 'bg-rose-50 text-rose-600')}
                     </div>
 
-                    <!-- 2. تقارير الحضور Section -->
                     <div id="rep-section-attendance" class="space-y-2 hidden">
                         <div class="bg-indigo-500/10 border border-indigo-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
                             <i class="fa-solid fa-user-clock text-indigo-600 text-base"></i>
@@ -1714,7 +1701,6 @@
                         ${renderReportButton('att_exceeded', 'تجاوز نسبة الغياب', 'طباعة تقرير بالطلبة الذين تجاوزوا نسبة 10% حسب المرحلة والشعبة', 'fa-ban', 'bg-rose-100 text-rose-700')}
                     </div>
 
-                    <!-- 3. تقارير الدرجات Section -->
                     <div id="rep-section-grades" class="space-y-2 hidden">
                         <div class="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
                             <i class="fa-solid fa-square-poll-vertical text-emerald-600 text-base"></i>
@@ -1762,7 +1748,7 @@
             });
         }
 
-        // --- DYNAMIC REPORT GENERATOR FUNCTION ---
+        // --- توليد التقارير وقوائم الطباعة (مرتبة أبجدياً) ---
         function generateReport(reportKey) {
             currentModalType = "report_view";
             const modal = document.getElementById('action-modal');
@@ -1781,14 +1767,12 @@
             let stageOptions = Array.from(new Set(appState.classes.map(c => c.name))).map(c => `<option value="${c}">${c}</option>`).join('');
             let secOptions = Array.from(new Set(appState.classes.map(c => c.section))).map(s => `<option value="${s}">شعبة ${s}</option>`).join('');
 
-            // ترويسة الطباعة الرسمية
             function getPrintableHeader(stageId) {
                 let logoHtml = appState.schoolInfo.logo 
                     ? `<img src="${appState.schoolInfo.logo}" class="w-16 h-16 object-contain rounded-xl">`
                     : `<div class="w-14 h-14 rounded-2xl border-2 border-slate-800 flex items-center justify-center text-slate-800 text-2xl font-black"><i class="fa-solid fa-graduation-cap"></i></div>`;
 
                 return `
-                    <!-- Print Only Official Header -->
                     <div class="print-only-header mb-2 pb-3 border-b-2 border-slate-900">
                         <div class="flex justify-between items-center text-right">
                             <div>
@@ -1806,7 +1790,6 @@
                         </div>
                     </div>
 
-                    <!-- Screen Action Bar -->
                     <div class="no-print flex justify-between items-center bg-slate-100 p-2.5 rounded-2xl mb-3 text-[10px] font-bold text-slate-600">
                         <div class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -1820,7 +1803,6 @@
                         </div>
                     </div>
 
-                    <!-- المتن: المرحلة الدراسية والشعبة واسم المادة قبل الجدول بسطرين في متن الورقة -->
                     <div class="print-body-title-block mb-4 pt-1 text-right">
                         <div class="text-sm font-black text-slate-900 leading-normal">
                             <span>المرحلة الدراسية والشعبة: </span>
@@ -1845,7 +1827,6 @@
                 `;
             }
 
-            // 1. تقرير قائمة الغياب والمجازين
             if (reportKey === 'att_absence_list') {
                 titleEl.innerText = "قائمة الغياب والمجازين";
                 iconEl.className = "fa-solid fa-user-xmark";
@@ -1870,12 +1851,8 @@
                             </select>
                         </div>
                     </div>
-
                     ${getSearchInputHtml("updateAbsenceListReport")}
-
-                    <div id="absence-stats-box" class="grid grid-cols-3 gap-2 text-center text-xs font-bold mb-3">
-                    </div>
-
+                    <div id="absence-stats-box" class="grid grid-cols-3 gap-2 text-center text-xs font-bold mb-3"></div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-right">
                             <thead class="bg-slate-900 text-amber-400 text-[10px]">
@@ -1891,8 +1868,6 @@
                 `;
                 updateAbsenceListReport();
             }
-
-            // 2. تقرير حضور يومي
             else if (reportKey === 'att_by_date') {
                 titleEl.innerText = "تقرير حضور يومي";
                 iconEl.className = "fa-solid fa-calendar-day";
@@ -1933,12 +1908,9 @@
                 `;
                 updateAttByDateReport();
             } 
-            
-            // 3. تقرير الحضور الشهري
             else if (reportKey === 'att_monthly') {
                 titleEl.innerText = "تقرير الحضور الشهري والمدد المحددة";
                 iconEl.className = "fa-solid fa-calendar-days";
-
                 let currentMonth = new Date().toISOString().slice(0, 7);
                 bodyEl.innerHTML = getPrintableHeader("rep-month-stage") + `
                     <div class="no-print space-y-2 mb-2.5 print-hidden-control">
@@ -1988,12 +1960,9 @@
                 `;
                 updateMonthlyAttReport();
             } 
-            
-            // 4. تقرير درجات الفصل المحدد
             else if (reportKey === 'grades_term_specific') {
                 titleEl.innerText = "تقرير درجات الفصل المحدد";
                 iconEl.className = "fa-solid fa-file-signature";
-
                 bodyEl.innerHTML = getPrintableHeader("rep-term-stage") + `
                     <div class="no-print space-y-2 mb-2.5 print-hidden-control">
                         <div class="grid grid-cols-3 gap-1.5">
@@ -2025,20 +1994,16 @@
                     ${getSearchInputHtml("updateTermSpecificGradesReport")}
                     <div class="overflow-x-auto">
                         <table class="w-full text-right">
-                            <thead class="bg-slate-900 text-amber-400 text-[10px]" id="rep-term-thead">
-                            </thead>
+                            <thead class="bg-slate-900 text-amber-400 text-[10px]" id="rep-term-thead"></thead>
                             <tbody id="term-grades-report-body"></tbody>
                         </table>
                     </div>
                 `;
                 updateTermSpecificGradesReport();
             } 
-            
-            // 5. تقرير المتابعة وحساب العلامات
             else if (reportKey === 'behavior_summary') {
                 titleEl.innerText = "تقرير المتابعة وحساب العلامات";
                 iconEl.className = "fa-solid fa-star-half-stroke";
-
                 bodyEl.innerHTML = getPrintableHeader("rep-beh-stage") + `
                     <div class="no-print grid grid-cols-2 gap-2 mb-2.5 print-hidden-control">
                         <div>
@@ -2075,12 +2040,9 @@
                 `;
                 updateBehaviorReport();
             } 
-            
-            // 6. تقرير قائمة جميع الطلبة
             else if (reportKey === 'all_students') {
                 titleEl.innerText = "تقرير قائمة جميع الطلبة";
                 iconEl.className = "fa-solid fa-users-line";
-
                 bodyEl.innerHTML = getPrintableHeader("rep-filter-stage") + `
                     <div class="no-print grid grid-cols-2 gap-2 mb-2.5 print-hidden-control">
                         <div>
@@ -2113,12 +2075,9 @@
                 `;
                 updateAllStudentsReport();
             } 
-            
-            // 7. تقرير طلبة حسب شعبة معينة
             else if (reportKey === 'students_by_section') {
                 titleEl.innerText = "تقرير طلبة حسب شعبة معينة";
                 iconEl.className = "fa-solid fa-network-wired";
-
                 bodyEl.innerHTML = getPrintableHeader("rep-sec-filter-stage") + `
                     <div class="no-print grid grid-cols-2 gap-2 mb-2.5 print-hidden-control">
                         <div>
@@ -2151,8 +2110,6 @@
                 `;
                 updateStudentsBySectionReport();
             } 
-            
-            // 8. درجات الشعبة كاملة
             else if (reportKey === 'grades_by_section') {
                 titleEl.innerText = "كشف درجات الشعبة كاملة";
                 iconEl.className = "fa-solid fa-list-ol";
@@ -2194,8 +2151,6 @@
                 `;
                 updateGradesSectionReport();
             } 
-            
-            // 9. تقرير الطلبة الناجحين
             else if (reportKey === 'grades_passed') {
                 titleEl.innerText = "تقرير الطلبة الناجحين";
                 iconEl.className = "fa-solid fa-circle-check";
@@ -2217,8 +2172,6 @@
                 `;
                 updatePassedReport();
             } 
-            
-            // 10. تقرير الطلبة الراسبين
             else if (reportKey === 'grades_failed') {
                 titleEl.innerText = "تقرير الطلبة الراسبين";
                 iconEl.className = "fa-solid fa-circle-xmark";
@@ -2240,8 +2193,6 @@
                 `;
                 updateFailedReport();
             } 
-            
-            // 11. تجاوز نسبة الغياب
             else if (reportKey === 'att_exceeded') {
                 titleEl.innerText = "تقرير الطلبة المتجاوزين لنسبة الغياب (10%)";
                 iconEl.className = "fa-solid fa-ban";
@@ -2288,8 +2239,6 @@
                     </div>
                 `;
             } 
-            
-            // 12. حضور طالب أو كل الطلاب
             else if (reportKey === 'att_by_student') {
                 titleEl.innerText = "حضور طالب أو كل الطلاب";
                 iconEl.className = "fa-solid fa-user-tag";
@@ -2333,21 +2282,7 @@
             }
         }
 
-        // --- دوال تحديث وفلترة التقارير ---
-        function setPrintHeaderStageLabel(elemId, stageVal, secVal) {
-            let labelEl = document.getElementById(`${elemId}-print-label`);
-            if (!labelEl) return;
-            let sText = stageVal === 'all' ? 'جميع المراحل' : stageVal;
-            let cText = secVal === 'all' ? 'جميع الشعب' : `شعبة (${secVal})`;
-            labelEl.innerText = `${sText} - ${cText}`;
-        }
-
-        function getSearchKeyword() {
-            let sInp = document.getElementById('report-search-input');
-            return sInp ? sInp.value.trim().toLowerCase() : '';
-        }
-
-        // 1. تقرير قائمة الغياب والمجازين
+        // 1. تقرير قائمة الغياب والمجازين (أبجدي)
         function updateAbsenceListReport() {
             const dateVal = document.getElementById('rep-abs-date').value;
             const stage = document.getElementById('rep-abs-stage').value;
@@ -2410,6 +2345,9 @@
                 targetStudents = targetStudents.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            // ترتيب أبجدي
+            targetStudents = sortStudentsAlphabetically(targetStudents);
+
             let rows = targetStudents.map((s, i) => `
                 <tr class="border-b border-slate-100 text-[11px]">
                     <td class="p-2 font-bold text-center">${i+1}</td>
@@ -2425,7 +2363,7 @@
             document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين في هذا التاريخ</td></tr>';
         }
 
-        // 2. تقرير حضور يومي
+        // 2. تقرير حضور يومي (أبجدي)
         function updateAttByDateReport() {
             const selDate = document.getElementById('rep-att-date-picker').value;
             const stage = document.getElementById('rep-att-date-stage').value;
@@ -2439,6 +2377,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
             
             let savedSession = appState.savedSessions.find(sess => sess.date === selDate && (stage === 'all' || sess.className === stage) && (sec === 'all' || sess.section === sec));
             
@@ -2468,7 +2408,7 @@
             document.getElementById('att-date-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للبحث أو الفلتر</td></tr>';
         }
 
-        // 3. تقرير الحضور الشهري
+        // 3. تقرير الحضور الشهري (أبجدي)
         function updateMonthlyAttReport() {
             const stage = document.getElementById('rep-month-stage').value;
             const sec = document.getElementById('rep-month-sec').value;
@@ -2483,6 +2423,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
                 let pCount = s.attendanceCount || 0;
@@ -2523,7 +2465,7 @@
             document.getElementById('att-monthly-report-body').innerHTML = rows || '<tr><td colspan="6" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للشروط</td></tr>';
         }
 
-        // 4. تقرير درجات الفصل المحدد
+        // 4. تقرير درجات الفصل المحدد (أبجدي)
         function updateTermSpecificGradesReport() {
             const termType = document.getElementById('rep-term-type').value;
             const stage = document.getElementById('rep-term-stage').value;
@@ -2548,6 +2490,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
                 let t1Sum = (s.t1Exam||0) + (s.t1Eval||0);
@@ -2602,7 +2546,7 @@
             document.getElementById('term-grades-report-body').innerHTML = rows || '<tr><td colspan="5" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة</td></tr>';
         }
 
-        // 5. تقرير المتابعة
+        // 5. تقرير المتابعة (أبجدي)
         function updateBehaviorReport() {
             const stage = document.getElementById('rep-beh-stage').value;
             const sec = document.getElementById('rep-beh-sec').value;
@@ -2615,6 +2559,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
                 let excellentCount = 0;
@@ -2639,9 +2585,9 @@
                     <tr class="border-b border-slate-100 text-[11px]">
                         <td class="p-2 font-bold text-center">${i+1}</td>
                         <td class="p-2 font-bold text-slate-800">${s.name}</td>
-                        <td class="p-2 text-center font-black text-emerald-600">${excellentCount}</td>
-                        <td class="p-2 text-center font-black text-amber-600">${averageCount}</td>
-                        <td class="p-2 text-center font-black text-rose-600">${poorCount}</td>
+                        <td class="p-2 text-center text-emerald-400 font-black">${excellentCount}</td>
+                        <td class="p-2 text-center text-amber-400 font-black">${averageCount}</td>
+                        <td class="p-2 text-center text-rose-400 font-black">${poorCount}</td>
                         <td class="p-2 text-center">
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">
                                 ${s.behavior || 'غير محدد'}
@@ -2654,7 +2600,7 @@
             document.getElementById('behavior-report-body').innerHTML = rows || '<tr><td colspan="6" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للشروط</td></tr>';
         }
 
-        // 6. تقرير قائمة جميع الطلبة
+        // 6. تقرير قائمة جميع الطلبة (أبجدي)
         function updateAllStudentsReport() {
             const stage = document.getElementById('rep-filter-stage').value;
             const sec = document.getElementById('rep-filter-section').value;
@@ -2668,6 +2614,8 @@
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
 
+            filtered = sortStudentsAlphabetically(filtered);
+
             let rows = filtered.map((s, i) => `
                 <tr class="border-b border-slate-100 text-[11px]">
                     <td class="p-2 font-bold text-center">${i+1}</td>
@@ -2677,7 +2625,7 @@
             document.getElementById('all-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطبقين للشروط</td></tr>';
         }
 
-        // 7. تقرير طلبة حسب شعبة
+        // 7. تقرير طلبة حسب شعبة (أبجدي)
         function updateStudentsBySectionReport() {
             const stage = document.getElementById('rep-sec-filter-stage').value;
             const sec = document.getElementById('rep-sec-filter-section').value;
@@ -2690,6 +2638,9 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
+
             let rows = filtered.map((s, i) => `
                 <tr class="border-b border-slate-100 text-[11px]">
                     <td class="p-2 font-bold text-center">${i+1}</td>
@@ -2699,7 +2650,7 @@
             document.getElementById('sec-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة في هذه المرحلة/الشعبة</td></tr>';
         }
 
-        // 8. درجات الشعبة كاملة
+        // 8. درجات الشعبة كاملة (أبجدي)
         function updateGradesSectionReport() {
             const stage = document.getElementById('rep-grd-stage').value;
             const sec = document.getElementById('rep-grd-sec').value;
@@ -2712,6 +2663,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
             
             let rows = filtered.map((s, i) => {
                 let t1Sum = (s.t1Exam||0) + (s.t1Eval||0);
@@ -2741,13 +2694,15 @@
             document.getElementById('grades-sec-report-body').innerHTML = rows || '<tr><td colspan="8" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة لتقرير الدرجات</td></tr>';
         }
 
-        // 9. الطلبة الناجحون
+        // 9. الطلبة الناجحون (أبجدي)
         function updatePassedReport() {
             const searchKey = getSearchKeyword();
             let passed = appState.students.filter(s => {
                 let tot = ((s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0));
                 return tot >= 50 && (!searchKey || s.name.toLowerCase().includes(searchKey));
             });
+            passed = sortStudentsAlphabetically(passed);
+
             let rows = passed.map((s, i) => {
                 let total = (s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0);
                 return `
@@ -2762,13 +2717,15 @@
             document.getElementById('grades-passed-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة</td></tr>';
         }
 
-        // 10. الطلبة الراسبون
+        // 10. الطلبة الراسبون (أبجدي)
         function updateFailedReport() {
             const searchKey = getSearchKeyword();
             let failed = appState.students.filter(s => {
                 let tot = ((s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0));
                 return tot < 50 && (!searchKey || s.name.toLowerCase().includes(searchKey));
             });
+            failed = sortStudentsAlphabetically(failed);
+
             let rows = failed.map((s, i) => {
                 let total = (s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0);
                 return `
@@ -2783,7 +2740,7 @@
             document.getElementById('grades-failed-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة راسبين</td></tr>';
         }
 
-        // 11. تجاوز نسبة الغياب
+        // 11. تجاوز نسبة الغياب (أبجدي)
         function updateAttExceededReport() {
             const stage = document.getElementById('rep-exc-stage').value;
             const sec = document.getElementById('rep-exc-sec').value;
@@ -2802,6 +2759,8 @@
                 let rate = ((s.absenceCount || 0) / totalLec) * 100;
                 return rate >= 10 || s.absenceCount >= 2;
             });
+
+            exceededStudents = sortStudentsAlphabetically(exceededStudents);
             
             let rows = exceededStudents.map((s, i) => {
                 let totalLec = (s.attendanceCount || 0) + (s.absenceCount || 0) + (s.excusedCount || 0) || 15;
@@ -2819,7 +2778,7 @@
             document.getElementById('att-exc-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-emerald-600 font-bold">لا يوجد طلبة تجاوزوا نسبة 10% من الغياب في هذه المرحلة/الشعبة</td></tr>';
         }
 
-        // 12. معالجة حضور طالب أو كل الطلاب
+        // 12. معالجة حضور طالب أو كل الطلاب (أبجدي)
         function toggleStudentAttendanceScope() {
             const scope = document.getElementById('rep-att-scope').value;
             const singleBox = document.getElementById('single-student-select-box');
@@ -2854,6 +2813,8 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            filtered = sortStudentsAlphabetically(filtered);
             
             if (stSelect) {
                 stSelect.innerHTML = filtered.map(s => `<option value="${s.id}">${s.name} (${s.class} - ${s.section})</option>`).join('') || '<option value="">لا يوجد طلبة</option>';
@@ -2940,6 +2901,9 @@
                 (sec === 'all' || s.section === sec) &&
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
+
+            // ترتيب أبجدي دقيق
+            filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
                 let absenceDates = (s.absenceLog || [])
@@ -3230,7 +3194,7 @@
             `;
         }
 
-        async function saveUpdatedClassItem(classId) {
+        function saveUpdatedClassItem(classId) {
             let cls = appState.classes.find(c => c.id === classId);
             if (!cls) return;
 
@@ -3257,32 +3221,37 @@
                 }
             });
 
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم تعديل المرحلة والشعبة بنجاح!");
             triggerAction('add_class');
             updateStatsBar();
             renderContent();
         }
 
-        async function deleteClassItem(classId) {
+        function deleteClassItem(classId) {
             if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المرحلة والشعبة؟")) return;
 
             appState.classes = appState.classes.filter(c => c.id !== classId);
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حذف المرحلة والشعبة بنجاح!");
             triggerAction('add_class');
             updateStatsBar();
             renderContent();
         }
 
-        // 2. إدارة الطلبة المسجلين
+        // 2. إدارة الطلبة المسجلين (مرتبة أبجدياً)
         function renderRegisteredStudentsList(container) {
-            let studentRows = appState.students.map(s => `
+            let sortedStudents = sortStudentsAlphabetically(appState.students);
+
+            let studentRows = sortedStudents.map((s, idx) => `
                 <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2 flex justify-between items-center" id="std-card-${s.id}">
-                    <div>
-                        <h5 class="font-extrabold text-xs text-slate-800">${s.name}</h5>
-                        <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
-                            <span><i class="fa-solid fa-layer-group text-indigo-500"></i> ${s.class} (${s.section})</span>
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">${idx + 1}</span>
+                        <div>
+                            <h5 class="font-extrabold text-xs text-slate-800">${s.name}</h5>
+                            <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
+                                <span><i class="fa-solid fa-layer-group text-indigo-500"></i> ${s.class} (${s.section})</span>
+                            </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -3299,20 +3268,20 @@
 
             container.innerHTML = `
                 <div class="space-y-2">
-                    <p class="text-[10px] text-slate-500 font-bold mb-2">يمكنك التعديل مباشرة على قيد الطالب أو حذفه نهائياً من النظام:</p>
+                    <p class="text-[10px] text-slate-500 font-bold mb-2">قائمة الطلبة المسجلين مرتبة أبجدياً (تعديل وحذف):</p>
                     <div class="max-h-80 overflow-y-auto custom-scroll">${studentRows || '<p class="text-xs text-center text-slate-400 py-3">لا يوجد طلبة مسجلين حالياً</p>'}</div>
                 </div>
             `;
         }
 
-        async function deleteStudentData(studentId) {
+        function deleteStudentData(studentId) {
             let s = appState.students.find(st => st.id === studentId);
             if (!s) return;
 
             if (!confirm(`هل أنت متأكد من رغبتك في حذف الطالب (${s.name}) نهائياً من النظام؟`)) return;
 
             appState.students = appState.students.filter(st => st.id !== studentId);
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حذف قيد الطالب بنجاح!");
             triggerAction('manage_registered_students');
             updateStatsBar();
@@ -3350,7 +3319,7 @@
             `;
         }
 
-        async function saveUpdatedStudentData(studentId) {
+        function saveUpdatedStudentData(studentId) {
             let s = appState.students.find(st => st.id === studentId);
             if (!s) return;
 
@@ -3365,7 +3334,7 @@
             s.class = className.trim();
             s.section = (sectionPart || "أ").trim();
 
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم تعديل بيانات الطالب بنجاح!");
             triggerAction('manage_registered_students');
             renderContent();
@@ -3450,7 +3419,7 @@
             `;
         }
 
-        async function saveUpdatedSubjectItem(subjectId) {
+        function saveUpdatedSubjectItem(subjectId) {
             let sub = appState.subjects.find(s => s.id === subjectId);
             if (!sub) return;
 
@@ -3465,18 +3434,18 @@
             sub.name = newName;
             sub.class = newClass;
 
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم تعديل بيانات المادة الدراسية بنجاح!");
             triggerAction('add_subject');
             updateStatsBar();
             renderContent();
         }
 
-        async function deleteSubjectItem(subjectId) {
+        function deleteSubjectItem(subjectId) {
             if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المادة الدراسية؟")) return;
 
             appState.subjects = appState.subjects.filter(s => s.id !== subjectId);
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حذف المادة الدراسية بنجاح!");
             triggerAction('add_subject');
             updateStatsBar();
@@ -3491,7 +3460,7 @@
             box.classList.add('scale-95');
         }
 
-        async function handleModalSubmit() {
+        function handleModalSubmit() {
             if (currentModalType === 'add_class') {
                 const name = document.getElementById('inp-class-name').value;
                 const section = document.getElementById('inp-class-section').value;
@@ -3548,14 +3517,13 @@
                 showToast("تم حفظ التعديلات بنجاح");
             }
 
-            await syncStateToCloud();
+            syncStateToCloud();
             closeModal();
             updateStatsBar();
             renderContent();
         }
 
-        // استيراد أسماء الطلبة بالجملة
-        async function executeBulkImport() {
+        function executeBulkImport() {
             const text = document.getElementById('inp-bulk-names').value;
             const classVal = document.getElementById('import-std-class').value;
 
@@ -3584,21 +3552,20 @@
                     added++;
                 }
             });
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast(`تم استيراد ${added} طالباً بنجاح!`);
             closeModal();
             updateStatsBar();
             renderContent();
         }
 
-        async function deleteScheduleItem(itemId) {
+        function deleteScheduleItem(itemId) {
             appState.schedule = appState.schedule.filter(s => s.id !== itemId);
-            await syncStateToCloud();
+            syncStateToCloud();
             showToast("تم حذف المحاضرة من الجدول");
             renderContent();
         }
 
-        // ضغط وتحجيم الشعار برمجياً لتجنب إتخام التخزين والمزامنة
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -3606,9 +3573,9 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
-                img.onload = async function() {
+                img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const maxDim = 120; // حجم مصغر وخفيف جداً لا يتعدى بضعة كيلوبايتات
+                    const maxDim = 120;
                     let width = img.width;
                     let height = img.height;
 
@@ -3637,8 +3604,8 @@
                         box.innerHTML = `<img src="${optimizedLogo}" class="w-full h-full object-contain">`;
                     }
                     updateStatsBar();
-                    await syncStateToCloud();
-                    showToast("تم تحميل وضغط شعار الكلية بنجاح!");
+                    syncStateToCloud();
+                    showToast("تم حفظ وضغط الشعار بنجاح!");
                 };
                 img.src = e.target.result;
             };
@@ -3664,10 +3631,9 @@
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
                 toast.classList.remove('translate-y-0');
-            }, 2800);
+            }, 2000);
         }
 
-        // Initialize Application
         window.onload = function() {
             try {
                 const cached = localStorage.getItem('sp_academic_local_data');
@@ -3680,7 +3646,7 @@
                     }
                 }
             } catch(e) {
-                console.warn("Could not read from local cache:", e);
+                console.warn("Local storage cache read error:", e);
             }
 
             initSupabase();
