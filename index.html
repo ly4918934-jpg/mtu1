@@ -495,7 +495,18 @@
 
         // دالة الترتيب الأبجدي الموحدة للغة العربية
         function sortStudentsAlphabetically(arr) {
-            return [...arr].sort((a, b) => a.name.trim().localeCompare(b.name.trim(), 'ar'));
+            if (!arr || !Array.isArray(arr)) return [];
+            return [...arr].sort((a, b) => (a.name || '').trim().localeCompare((b.name || '').trim(), 'ar'));
+        }
+
+        // تحويل أسماء الأيام للغة العربية
+        function getDayName(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ar-IQ', { weekday: 'long' });
+            } catch(e) {
+                return 'يوم المحاضرة';
+            }
         }
 
         // --- Supabase Cloud Database Realtime Engine ---
@@ -570,7 +581,6 @@
             }
         }
 
-        // حل مشكلة الثقل: حفظ فوري محلياً ومزامنة سحابية خفيفة في الخلفية دون تجميد واجهة التطبيق
         function syncStateToCloud() {
             try {
                 localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
@@ -828,7 +838,7 @@
             `;
         }
 
-        // 3. Behavior Tab (مرتب أبجدياً)
+        // 3. Behavior Tab
         function renderBehaviorTab(container) {
             let stages = Array.from(new Set(appState.classes.map(c => c.name)));
             let sections = Array.from(new Set(appState.classes.map(c => c.section)));
@@ -898,7 +908,6 @@
                 (sec === 'all' || s.section === sec)
             );
 
-            // ترتيب أبجدي
             filtered = sortStudentsAlphabetically(filtered);
 
             if (filtered.length === 0) {
@@ -1043,7 +1052,7 @@
             container.innerHTML = scheduleHtml;
         }
 
-        // 5. Attendance Tab Rendering (مع إصلاح تحديد الكل والترتيب وسرعة الحفظ)
+        // 5. Attendance Tab Rendering
         function renderAttendanceTab(container) {
             let classOptions = appState.classes.map(c => `<option value="${c.name} - ${c.section}">${c.name} (شعبة ${c.section})</option>`).join('');
             let subjectOptions = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
@@ -1112,6 +1121,15 @@
 
         function deleteSavedSession(sessId) {
             if (!confirm("هل أنت متأكد من رغبتك في حذف جلسة الحضور هذه نهائياً؟")) return;
+            const sessToDelete = appState.savedSessions.find(s => s.id === sessId);
+            if (sessToDelete) {
+                // إزالة التواريخ المرتبطة بهذه الجلسة من سجلات غياب الطلبة
+                appState.students.forEach(st => {
+                    if (st.absenceLog) {
+                        st.absenceLog = st.absenceLog.filter(log => log.date !== sessToDelete.date);
+                    }
+                });
+            }
             appState.savedSessions = appState.savedSessions.filter(s => s.id !== sessId);
             syncStateToCloud();
             showToast("تم حذف جلسة الحضور بنجاح!");
@@ -1132,7 +1150,6 @@
             const section = sectionPart || "أ";
 
             let filteredStudents = appState.students.filter(s => s.class.trim() === className.trim() && s.section.trim() === section.trim());
-            // الترتيب الأبجدي الدقيق
             filteredStudents = sortStudentsAlphabetically(filteredStudents);
             currentLoadedAttendanceStudents = filteredStudents;
 
@@ -1148,8 +1165,8 @@
 
             currentAttendanceMap = {};
             filteredStudents.forEach(st => {
-                if (editingSession && editingSession.records && editingSession.records[st.id]) {
-                    currentAttendanceMap[st.id] = editingSession.records[st.id];
+                if (editingSession && editingSession.records && (editingSession.records[st.id] !== undefined || editingSession.records[String(st.id)] !== undefined)) {
+                    currentAttendanceMap[st.id] = editingSession.records[st.id] || editingSession.records[String(st.id)];
                 } else {
                     currentAttendanceMap[st.id] = 'present';
                 }
@@ -1215,9 +1232,9 @@
             container.innerHTML = listHtml;
         }
 
-        // تم إصلاح الدالة لتحديث الحالة بدقة وتحديث مظهر الأزرار
         function setSingleAttendanceStatus(studentId, status) {
             currentAttendanceMap[studentId] = status;
+            currentAttendanceMap[String(studentId)] = status;
             const btnBox = document.getElementById(`att-btns-${studentId}`);
             if (!btnBox) return;
             const buttons = btnBox.querySelectorAll('button');
@@ -1228,25 +1245,33 @@
             }
         }
 
-        // حل مشكلة "تحديد الكل غائب / حاضر" لتطبيق التحديد فورا لجميع الطلبة الظاهرين
         function setAllAttendanceStatus(status) {
             if (!currentLoadedAttendanceStudents || currentLoadedAttendanceStudents.length === 0) return;
-            
             currentLoadedAttendanceStudents.forEach(st => {
-                currentAttendanceMap[st.id] = status;
                 setSingleAttendanceStatus(st.id, status);
             });
             showToast(status === 'present' ? "تم تحديد جميع الطلبة كـ حاضر ✓" : "تم تحديد جميع الطلبة كـ غائب ✗");
         }
 
-        // حل مشكلة ثقل حفظ جلسة الحضور
+        // تم ربط وتحديث الحضور مع سجلات الطلبة بدقة تامة لتظهر فورا في التقارير
         function saveAttendanceRecord(editingSessionId = null) {
             const classVal = document.getElementById('att-class-select').value;
             const subjectVal = document.getElementById('att-subject-select').value;
             const dateVal = document.getElementById('att-date-input').value;
 
+            if (!classVal || !dateVal) {
+                showToast("الرجاء اختيار المرحلة وتاريخ المحاضرة", "error");
+                return;
+            }
+
             const [className, sectionPart] = classVal.split(" - ");
             const section = sectionPart || "أ";
+            const dayText = getDayName(dateVal);
+
+            let cleanRecords = {};
+            Object.keys(currentAttendanceMap).forEach(k => {
+                cleanRecords[k] = currentAttendanceMap[k];
+            });
 
             if (editingSessionId) {
                 let sess = appState.savedSessions.find(s => s.id === editingSessionId);
@@ -1255,9 +1280,8 @@
                     sess.className = className;
                     sess.section = section;
                     sess.subject = subjectVal;
-                    sess.records = { ...currentAttendanceMap };
+                    sess.records = cleanRecords;
                 }
-                showToast("تم تحديث الجلسة المحفوظة بنجاح!");
             } else {
                 let newSession = {
                     id: Date.now(),
@@ -1265,30 +1289,40 @@
                     className: className,
                     section: section,
                     subject: subjectVal,
-                    records: { ...currentAttendanceMap }
+                    records: cleanRecords
                 };
                 appState.savedSessions.unshift(newSession);
-
-                Object.keys(currentAttendanceMap).forEach(stId => {
-                    let st = appState.students.find(s => s.id === parseInt(stId));
-                    if (st) {
-                        let stStatus = currentAttendanceMap[stId];
-                        if (stStatus === 'present') st.attendanceCount = (st.attendanceCount || 0) + 1;
-                        else if (stStatus === 'absent') {
-                            st.absenceCount = (st.absenceCount || 0) + 1;
-                            if (!st.absenceLog) st.absenceLog = [];
-                            st.absenceLog.push({ date: dateVal, day: "يوم المحاضرة", status: "غائب" });
-                        } else if (stStatus === 'excused') {
-                            st.excusedCount = (st.excusedCount || 0) + 1;
-                            if (!st.absenceLog) st.absenceLog = [];
-                            st.absenceLog.push({ date: dateVal, day: "يوم المحاضرة", status: "مجاز" });
-                        }
-                    }
-                });
-                showToast("تم تسجيل وحفظ جلسة الحضور بنجاح!");
             }
 
-            // مزامنة سريعة وخفيفة
+            // تحديث سجلات الطالب والغيابات الخاصة بالتاريخ لضمان ظهورها مباشرة في التقارير
+            currentLoadedAttendanceStudents.forEach(st => {
+                let currentStudent = appState.students.find(s => s.id === st.id);
+                if (!currentStudent) return;
+
+                if (!currentStudent.absenceLog) currentStudent.absenceLog = [];
+                // حذف أي سجل قديم لنفس التاريخ
+                currentStudent.absenceLog = currentStudent.absenceLog.filter(log => log.date !== dateVal);
+
+                let stStatus = cleanRecords[st.id] || cleanRecords[String(st.id)] || 'present';
+
+                if (stStatus === 'absent') {
+                    currentStudent.absenceLog.push({ date: dateVal, day: dayText, status: "غائب" });
+                } else if (stStatus === 'excused') {
+                    currentStudent.absenceLog.push({ date: dateVal, day: dayText, status: "مجاز" });
+                }
+
+                // إعادة حساب الإجماليات بدقة
+                let absCount = currentStudent.absenceLog.filter(l => l.status === 'غائب').length;
+                let excCount = currentStudent.absenceLog.filter(l => l.status === 'مجاز').length;
+                currentStudent.absenceCount = absCount;
+                currentStudent.excusedCount = excCount;
+                if (!currentStudent.attendanceCount) currentStudent.attendanceCount = 14;
+                if (stStatus === 'present' && !editingSessionId) {
+                    currentStudent.attendanceCount += 1;
+                }
+            });
+
+            showToast("تم حفظ جلسة الحضور بنجاح وربطها مع التقارير!");
             syncStateToCloud();
             renderContent();
         }
@@ -1305,7 +1339,7 @@
             showToast("جاري تحميل بيانات الجلسة للتعديل...");
         }
 
-        // --- 6. GRADES TAB RENDERER (مرتب أبجدياً) ---
+        // --- 6. GRADES TAB RENDERER ---
         function renderGradesTab(container) {
             let stageOptions = Array.from(new Set(appState.classes.map(c => c.name))).map(c => `<option value="${c}">${c}</option>`).join('');
             let secOptions = Array.from(new Set(appState.classes.map(c => c.section))).map(s => `<option value="${s}">شعبة ${s}</option>`).join('');
@@ -1383,7 +1417,6 @@
                 (sec === 'all' || s.section === sec)
             );
 
-            // ترتيب أبجدي في الدرجات
             filtered = sortStudentsAlphabetically(filtered);
 
             if (filtered.length === 0) {
@@ -1656,7 +1689,7 @@
             showToast("تم حفظ درجات الفاينل بنجاح!");
         }
 
-        // --- 7. REPORTS TAB RENDERER (جميع القوائم مرتبة أبجدياً) ---
+        // --- 7. REPORTS TAB RENDERER ---
         function renderReportsTab(container) {
             container.innerHTML = `
                 <div class="space-y-3.5">
@@ -1748,7 +1781,7 @@
             });
         }
 
-        // --- توليد التقارير وقوائم الطباعة (مرتبة أبجدياً) ---
+        // --- DYNAMIC REPORT GENERATOR FUNCTION ---
         function generateReport(reportKey) {
             currentModalType = "report_view";
             const modal = document.getElementById('action-modal');
@@ -1827,6 +1860,7 @@
                 `;
             }
 
+            // 1. تقرير قائمة الغياب والمجازين
             if (reportKey === 'att_absence_list') {
                 titleEl.innerText = "قائمة الغياب والمجازين";
                 iconEl.className = "fa-solid fa-user-xmark";
@@ -1868,6 +1902,7 @@
                 `;
                 updateAbsenceListReport();
             }
+            // 2. تقرير حضور يومي
             else if (reportKey === 'att_by_date') {
                 titleEl.innerText = "تقرير حضور يومي";
                 iconEl.className = "fa-solid fa-calendar-day";
@@ -1908,6 +1943,7 @@
                 `;
                 updateAttByDateReport();
             } 
+            // 3. تقرير الحضور الشهري
             else if (reportKey === 'att_monthly') {
                 titleEl.innerText = "تقرير الحضور الشهري والمدد المحددة";
                 iconEl.className = "fa-solid fa-calendar-days";
@@ -1960,6 +1996,7 @@
                 `;
                 updateMonthlyAttReport();
             } 
+            // 4. تقرير درجات الفصل المحدد
             else if (reportKey === 'grades_term_specific') {
                 titleEl.innerText = "تقرير درجات الفصل المحدد";
                 iconEl.className = "fa-solid fa-file-signature";
@@ -2001,6 +2038,7 @@
                 `;
                 updateTermSpecificGradesReport();
             } 
+            // 5. تقرير المتابعة وحساب العلامات
             else if (reportKey === 'behavior_summary') {
                 titleEl.innerText = "تقرير المتابعة وحساب العلامات";
                 iconEl.className = "fa-solid fa-star-half-stroke";
@@ -2040,6 +2078,7 @@
                 `;
                 updateBehaviorReport();
             } 
+            // 6. تقرير قائمة جميع الطلبة
             else if (reportKey === 'all_students') {
                 titleEl.innerText = "تقرير قائمة جميع الطلبة";
                 iconEl.className = "fa-solid fa-users-line";
@@ -2075,6 +2114,7 @@
                 `;
                 updateAllStudentsReport();
             } 
+            // 7. تقرير طلبة حسب شعبة معينة
             else if (reportKey === 'students_by_section') {
                 titleEl.innerText = "تقرير طلبة حسب شعبة معينة";
                 iconEl.className = "fa-solid fa-network-wired";
@@ -2110,6 +2150,7 @@
                 `;
                 updateStudentsBySectionReport();
             } 
+            // 8. درجات الشعبة كاملة
             else if (reportKey === 'grades_by_section') {
                 titleEl.innerText = "كشف درجات الشعبة كاملة";
                 iconEl.className = "fa-solid fa-list-ol";
@@ -2151,6 +2192,7 @@
                 `;
                 updateGradesSectionReport();
             } 
+            // 9. تقرير الطلبة الناجحين
             else if (reportKey === 'grades_passed') {
                 titleEl.innerText = "تقرير الطلبة الناجحين";
                 iconEl.className = "fa-solid fa-circle-check";
@@ -2172,6 +2214,7 @@
                 `;
                 updatePassedReport();
             } 
+            // 10. تقرير الطلبة الراسبين
             else if (reportKey === 'grades_failed') {
                 titleEl.innerText = "تقرير الطلبة الراسبين";
                 iconEl.className = "fa-solid fa-circle-xmark";
@@ -2193,6 +2236,7 @@
                 `;
                 updateFailedReport();
             } 
+            // 11. تجاوز نسبة الغياب
             else if (reportKey === 'att_exceeded') {
                 titleEl.innerText = "تقرير الطلبة المتجاوزين لنسبة الغياب (10%)";
                 iconEl.className = "fa-solid fa-ban";
@@ -2239,6 +2283,7 @@
                     </div>
                 `;
             } 
+            // 12. حضور طالب أو كل الطلاب
             else if (reportKey === 'att_by_student') {
                 titleEl.innerText = "حضور طالب أو كل الطلاب";
                 iconEl.className = "fa-solid fa-user-tag";
@@ -2282,7 +2327,21 @@
             }
         }
 
-        // 1. تقرير قائمة الغياب والمجازين (أبجدي)
+        // --- دوال تحديث وفلترة التقارير ---
+        function setPrintHeaderStageLabel(elemId, stageVal, secVal) {
+            let labelEl = document.getElementById(`${elemId}-print-label`);
+            if (!labelEl) return;
+            let sText = stageVal === 'all' ? 'جميع المراحل' : stageVal;
+            let cText = secVal === 'all' ? 'جميع الشعب' : `شعبة (${secVal})`;
+            labelEl.innerText = `${sText} - ${cText}`;
+        }
+
+        function getSearchKeyword() {
+            let sInp = document.getElementById('report-search-input');
+            return sInp ? sInp.value.trim().toLowerCase() : '';
+        }
+
+        // 1. تقرير قائمة الغياب والمجازين (يربط الجلسات المحفوظة مع سجلات الطلبة)
         function updateAbsenceListReport() {
             const dateVal = document.getElementById('rep-abs-date').value;
             const stage = document.getElementById('rep-abs-stage').value;
@@ -2296,6 +2355,7 @@
                 (sec === 'all' || s.section === sec)
             );
 
+            // جلب الجلسة المسجلة لهذا التاريخ
             let savedSession = appState.savedSessions.find(sess => sess.date === dateVal && (stage === 'all' || sess.className === stage) && (sec === 'all' || sess.section === sec));
 
             let presentCount = 0;
@@ -2305,16 +2365,22 @@
 
             filtered.forEach(s => {
                 let status = "حاضر";
-                if (savedSession && savedSession.records && savedSession.records[s.id]) {
-                    let stCode = savedSession.records[s.id];
-                    status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
+                if (savedSession && savedSession.records) {
+                    let stCode = savedSession.records[s.id] || savedSession.records[String(s.id)];
+                    if (stCode) {
+                        status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
+                    } else {
+                        let matchLog = (s.absenceLog || []).find(l => l.date === dateVal);
+                        if (matchLog) status = matchLog.status;
+                    }
                 } else {
                     let matchLog = (s.absenceLog || []).find(l => l.date === dateVal);
                     if (matchLog) status = matchLog.status;
                 }
 
-                if (status === 'حاضر') presentCount++;
-                else if (status === 'غائب') {
+                if (status === 'حاضر') {
+                    presentCount++;
+                } else if (status === 'غائب') {
                     absentCount++;
                     targetStudents.push({ ...s, currentStatus: 'غائب' });
                 } else if (status === 'مجاز') {
@@ -2345,7 +2411,6 @@
                 targetStudents = targetStudents.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
-            // ترتيب أبجدي
             targetStudents = sortStudentsAlphabetically(targetStudents);
 
             let rows = targetStudents.map((s, i) => `
@@ -2363,7 +2428,7 @@
             document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين في هذا التاريخ</td></tr>';
         }
 
-        // 2. تقرير حضور يومي (أبجدي)
+        // 2. تقرير حضور يومي
         function updateAttByDateReport() {
             const selDate = document.getElementById('rep-att-date-picker').value;
             const stage = document.getElementById('rep-att-date-stage').value;
@@ -2384,9 +2449,14 @@
             
             let rows = filtered.map((s, i) => {
                 let status = "حاضر";
-                if (savedSession && savedSession.records && savedSession.records[s.id]) {
-                    let stCode = savedSession.records[s.id];
-                    status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
+                if (savedSession && savedSession.records) {
+                    let stCode = savedSession.records[s.id] || savedSession.records[String(s.id)];
+                    if (stCode) {
+                        status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
+                    } else {
+                        let matchLog = (s.absenceLog || []).find(l => l.date === selDate);
+                        if (matchLog) status = matchLog.status;
+                    }
                 } else {
                     let matchLog = (s.absenceLog || []).find(l => l.date === selDate);
                     if (matchLog) status = matchLog.status;
@@ -2408,7 +2478,7 @@
             document.getElementById('att-date-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للبحث أو الفلتر</td></tr>';
         }
 
-        // 3. تقرير الحضور الشهري (أبجدي)
+        // 3. تقرير الحضور الشهري
         function updateMonthlyAttReport() {
             const stage = document.getElementById('rep-month-stage').value;
             const sec = document.getElementById('rep-month-sec').value;
@@ -2465,7 +2535,7 @@
             document.getElementById('att-monthly-report-body').innerHTML = rows || '<tr><td colspan="6" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للشروط</td></tr>';
         }
 
-        // 4. تقرير درجات الفصل المحدد (أبجدي)
+        // 4. تقرير درجات الفصل المحدد
         function updateTermSpecificGradesReport() {
             const termType = document.getElementById('rep-term-type').value;
             const stage = document.getElementById('rep-term-stage').value;
@@ -2546,7 +2616,7 @@
             document.getElementById('term-grades-report-body').innerHTML = rows || '<tr><td colspan="5" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة</td></tr>';
         }
 
-        // 5. تقرير المتابعة (أبجدي)
+        // 5. تقرير المتابعة
         function updateBehaviorReport() {
             const stage = document.getElementById('rep-beh-stage').value;
             const sec = document.getElementById('rep-beh-sec').value;
@@ -2600,7 +2670,7 @@
             document.getElementById('behavior-report-body').innerHTML = rows || '<tr><td colspan="6" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطابقين للشروط</td></tr>';
         }
 
-        // 6. تقرير قائمة جميع الطلبة (أبجدي)
+        // 6. تقرير قائمة جميع الطلبة
         function updateAllStudentsReport() {
             const stage = document.getElementById('rep-filter-stage').value;
             const sec = document.getElementById('rep-filter-section').value;
@@ -2625,7 +2695,7 @@
             document.getElementById('all-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة مطبقين للشروط</td></tr>';
         }
 
-        // 7. تقرير طلبة حسب شعبة (أبجدي)
+        // 7. تقرير طلبة حسب شعبة
         function updateStudentsBySectionReport() {
             const stage = document.getElementById('rep-sec-filter-stage').value;
             const sec = document.getElementById('rep-sec-filter-section').value;
@@ -2650,7 +2720,7 @@
             document.getElementById('sec-students-report-body').innerHTML = rows || '<tr><td colspan="2" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة في هذه المرحلة/الشعبة</td></tr>';
         }
 
-        // 8. درجات الشعبة كاملة (أبجدي)
+        // 8. درجات الشعبة كاملة
         function updateGradesSectionReport() {
             const stage = document.getElementById('rep-grd-stage').value;
             const sec = document.getElementById('rep-grd-sec').value;
@@ -2694,7 +2764,7 @@
             document.getElementById('grades-sec-report-body').innerHTML = rows || '<tr><td colspan="8" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة لتقرير الدرجات</td></tr>';
         }
 
-        // 9. الطلبة الناجحون (أبجدي)
+        // 9. الطلبة الناجحون
         function updatePassedReport() {
             const searchKey = getSearchKeyword();
             let passed = appState.students.filter(s => {
@@ -2717,7 +2787,7 @@
             document.getElementById('grades-passed-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة</td></tr>';
         }
 
-        // 10. الطلبة الراسبون (أبجدي)
+        // 10. الطلبة الراسبون
         function updateFailedReport() {
             const searchKey = getSearchKeyword();
             let failed = appState.students.filter(s => {
@@ -2740,7 +2810,7 @@
             document.getElementById('grades-failed-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة راسبين</td></tr>';
         }
 
-        // 11. تجاوز نسبة الغياب (أبجدي)
+        // 11. تجاوز نسبة الغياب
         function updateAttExceededReport() {
             const stage = document.getElementById('rep-exc-stage').value;
             const sec = document.getElementById('rep-exc-sec').value;
@@ -2778,7 +2848,7 @@
             document.getElementById('att-exc-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-emerald-600 font-bold">لا يوجد طلبة تجاوزوا نسبة 10% من الغياب في هذه المرحلة/الشعبة</td></tr>';
         }
 
-        // 12. معالجة حضور طالب أو كل الطلاب (أبجدي)
+        // 12. معالجة حضور طالب أو كل الطلاب
         function toggleStudentAttendanceScope() {
             const scope = document.getElementById('rep-att-scope').value;
             const singleBox = document.getElementById('single-student-select-box');
@@ -2902,7 +2972,6 @@
                 (!searchKey || s.name.toLowerCase().includes(searchKey))
             );
 
-            // ترتيب أبجدي دقيق
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
@@ -3239,7 +3308,7 @@
             renderContent();
         }
 
-        // 2. إدارة الطلبة المسجلين (مرتبة أبجدياً)
+        // 2. إدارة الطلبة المسجلين
         function renderRegisteredStudentsList(container) {
             let sortedStudents = sortStudentsAlphabetically(appState.students);
 
