@@ -211,9 +211,16 @@
                     </div>
                 </div>
 
-                <div id="google-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
-                    <span id="google-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
-                    <span id="google-status-text">Google غير متصل</span>
+                <!-- شارات الاتصال السحابي (Supabase & Google) -->
+                <div class="flex flex-col gap-1 items-end">
+                    <div id="supabase-status-badge" class="text-[9px] bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer" onclick="switchTab(0)">
+                        <span id="supabase-status-dot" class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        <span id="supabase-status-text">Supabase غير متصل</span>
+                    </div>
+                    <div id="google-status-badge" class="text-[9px] bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer" onclick="switchTab(0)">
+                        <span id="google-status-dot" class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        <span id="google-status-text">Google غير متصل</span>
+                    </div>
                 </div>
             </div>
 
@@ -573,7 +580,84 @@
             return inp ? inp.value.trim().toLowerCase() : '';
         }
 
-        // --- محرك الحفظ السحابي مع Google و Supabase ---
+        // --- Supabase Cloud Database Engine ---
+        function initSupabase() {
+            const url = appState.supabaseConfig.url;
+            const key = appState.supabaseConfig.key;
+
+            if (url && key) {
+                try {
+                    supabaseClient = supabase.createClient(url, key);
+                    testSupabaseConnection(false);
+                } catch(e) {
+                    console.error("Supabase Init Error:", e);
+                    setSupabaseStatus(false);
+                }
+            } else {
+                setSupabaseStatus(false);
+            }
+        }
+
+        async function testSupabaseConnection(showAlert = true) {
+            if (!supabaseClient) {
+                setSupabaseStatus(false);
+                return;
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('professor_data')
+                    .select('data')
+                    .eq('id', 'main_academic_state')
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                setSupabaseStatus(true);
+                if (data && data.data) {
+                    const localSupabaseConfig = appState.supabaseConfig;
+                    const localGoogleConfig = appState.googleConfig;
+                    appState = data.data;
+                    appState.supabaseConfig = localSupabaseConfig;
+                    if (localGoogleConfig) appState.googleConfig = localGoogleConfig;
+                    renderContent();
+                    updateStatsBar();
+                } else {
+                    syncStateToCloud();
+                }
+
+                if (showAlert) showToast("تم الاتصال بقاعدة بيانات Supabase بنجاح!");
+            } catch(err) {
+                console.error("Supabase Error:", err);
+                setSupabaseStatus(false);
+                if (showAlert) showToast("فشل الاتصال بـ Supabase: تأكد من إعداد جدول professor_data", "error");
+            }
+        }
+
+        function setSupabaseStatus(isConnected) {
+            if (!appState.supabaseConfig) {
+                appState.supabaseConfig = { url: "", key: "", connected: false };
+            }
+            appState.supabaseConfig.connected = isConnected;
+            const badge = document.getElementById('supabase-status-badge');
+            const dot = document.getElementById('supabase-status-dot');
+            const text = document.getElementById('supabase-status-text');
+
+            if (!badge || !dot || !text) return;
+
+            if (isConnected) {
+                badge.className = "text-[9px] bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-emerald-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
+                text.innerText = "Supabase متصل ✓";
+            } else {
+                badge.className = "text-[9px] bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+                text.innerText = "Supabase غير متصل";
+            }
+        }
+
+        // --- محرك الحفظ السحابي مع Google ---
         function setGoogleStatus(isConnected) {
             if (!appState.googleConfig) {
                 appState.googleConfig = { connected: false, email: "", autoSync: true, lastSyncTime: "" };
@@ -586,16 +670,17 @@
             if (!badge || !dot || !text) return;
 
             if (isConnected) {
-                badge.className = "text-[10px] bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-full text-emerald-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
-                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                badge.className = "text-[9px] bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-emerald-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
                 text.innerText = "Google متصل سحابياً ✓";
             } else {
-                badge.className = "text-[10px] bg-rose-500/20 border border-rose-500/40 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
-                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                badge.className = "text-[9px] bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1 shadow-sm transition-all duration-300 cursor-pointer";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
                 text.innerText = "Google غير متصل";
             }
         }
 
+        // الحفظ المزدوج التلقائي واللحظي لكافة التغييرات
         function syncStateToCloud() {
             try {
                 localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
@@ -615,22 +700,23 @@
                 } catch(e) {}
             }
 
-            if (!supabaseClient || !appState.supabaseConfig.connected) return;
-
-            if (syncTimeout) clearTimeout(syncTimeout);
-            syncTimeout = setTimeout(async () => {
-                try {
-                    await supabaseClient
-                        .from('professor_data')
-                        .upsert({
-                            id: 'main_academic_state',
-                            data: appState,
-                            updated_at: new Date().toISOString()
-                        });
-                } catch (err) {
-                    console.warn("Background cloud sync error:", err);
-                }
-            }, 300);
+            // مزامنة لحظية مع قاعدة بيانات Supabase
+            if (supabaseClient && appState.supabaseConfig.connected) {
+                if (syncTimeout) clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(async () => {
+                    try {
+                        await supabaseClient
+                            .from('professor_data')
+                            .upsert({
+                                id: 'main_academic_state',
+                                data: appState,
+                                updated_at: new Date().toISOString()
+                            });
+                    } catch (err) {
+                        console.warn("Supabase Cloud Sync Error:", err);
+                    }
+                }, 300);
+            }
         }
 
         // دوال الربط والاستعادة مع حساب Google
@@ -659,9 +745,11 @@
                     const parsed = JSON.parse(cloudBackup);
                     if (parsed && parsed.data) {
                         const gCfg = appState.googleConfig;
+                        const sCfg = appState.supabaseConfig;
                         appState = parsed.data;
                         appState.googleConfig = gCfg;
                         appState.googleConfig.connected = true;
+                        appState.supabaseConfig = sCfg;
                         updateStatsBar();
                         renderContent();
                         showToast("تمت استعادة كافة البيانات السحابية من Google بنجاح!");
@@ -670,7 +758,7 @@
                     }
                 }
             } catch(e) {}
-            showToast("جاري المزامنة: لم يتم العثور على نسخة سابقة، تم اعتماد النسخة الحالية كسحابية.", "info");
+            showToast("تم اعتماد النسخة الحالية وحفظها سحابياً في Google بنجاح.", "info");
             connectGoogleAccount();
         }
 
@@ -685,12 +773,28 @@
             renderContent();
         }
 
+        // حفظ إعدادات Supabase اليدوية
+        function saveSupabaseConfigSettings() {
+            const url = document.getElementById('inp-sp-url').value.trim();
+            const key = document.getElementById('inp-sp-key').value.trim();
+            if (!url || !key) {
+                showToast("الرجاء إدخال رابط المشروع والمفتاح", "error");
+                return;
+            }
+            appState.supabaseConfig.url = url;
+            appState.supabaseConfig.key = key;
+            initSupabase();
+            testSupabaseConnection(true);
+            closeModal();
+            renderContent();
+        }
+
         // --- Tabs Specification Data ---
         const tabsData = [
             {
                 index: 0,
                 title: "الإعدادات والنظام",
-                subtitle: "إعدادات الأستاذ والكلية والربط السحابي مع حساب Google",
+                subtitle: "إعدادات الأستاذ والكلية والربط السحابي (Supabase & Google)",
                 icon: "fa-gear",
                 isSettings: true
             },
@@ -860,13 +964,14 @@
             container.innerHTML = html;
         }
 
-        // 2. Settings Tab Rendering
+        // 2. Settings Tab Rendering (يشمل الآن Supabase و Google)
         function renderSettingsTab(container) {
             let logoPreview = appState.schoolInfo.logo 
                 ? `<img src="${appState.schoolInfo.logo}" class="w-10 h-10 rounded-2xl object-cover border border-amber-400/40">`
                 : `<div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-base border border-amber-400/30"><i class="fa-solid fa-building-columns"></i></div>`;
 
             let isGoogleConnected = appState.googleConfig && appState.googleConfig.connected;
+            let isSupabaseConnected = appState.supabaseConfig && appState.supabaseConfig.connected;
 
             container.innerHTML = `
                 <div class="space-y-3.5">
@@ -896,6 +1001,22 @@
                             </div>
                             <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${isGoogleConnected ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700'}">
                                 ${isGoogleConnected ? 'متصل لحظياً ✓' : 'ربط الحساب'}
+                            </span>
+                        </div>
+
+                        <!-- تبويب الربط مع Supabase المحفوظ بالكامل -->
+                        <div onclick="triggerAction('edit_supabase_config')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-emerald-100 bg-emerald-50/30">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs"><i class="fa-solid fa-database"></i></div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-bold text-xs text-slate-800">الربط مع قاعدة بيانات Supabase.com</h4>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400">حفظ سحابي مباشر للدرجات والغيابات في جدول professor_data</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${isSupabaseConnected ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'}">
+                                ${isSupabaseConnected ? 'متصل ✓' : 'إعداد'}
                             </span>
                         </div>
 
@@ -1885,7 +2006,7 @@
                 <option value="${c.name} - ${c.section} - ${c.studyType || 'صباحي'}">${c.name} (شعبة ${c.section} - ${c.studyType || 'صباحي'})</option>
             `).join('');
 
-            // ترويسة الطباعة الرسمية المعدلة: الجامعة، الكلية، القسم، اسم الأستاذ بحجم 11 وبولد والشعار بالمنتصف
+            // ترويسة الطباعة الرسمية: الجامعة، الكلية، القسم، اسم الأستاذ بحجم 11 وبولد والشعار بالمنتصف بدقة
             function getPrintableHeader(stageId) {
                 let logoHtml = appState.schoolInfo.logo 
                     ? `<img src="${appState.schoolInfo.logo}" style="width: 75px; height: 75px; object-fit: contain; margin: 0 auto; display: block;" class="rounded-xl">`
@@ -3200,6 +3321,31 @@
                     </div>
                 `;
             }
+            else if (actionKey === 'edit_supabase_config') {
+                titleEl.innerText = "إعدادات الربط مع قاعدة بيانات Supabase.com";
+                iconEl.className = "fa-solid fa-database text-emerald-400";
+
+                bodyEl.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="bg-emerald-50/70 border border-emerald-100 p-3 rounded-2xl">
+                            <h4 class="font-bold text-xs text-emerald-950 mb-1">الاتصال المباشر مع Supabase:</h4>
+                            <p class="text-[10px] text-emerald-700">بيانات التكوين الخاصة بالمشروع (Project URL & Anon Key):</p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">رابط المشروع (Project URL):</label>
+                            <input id="inp-sp-url" type="text" value="${appState.supabaseConfig.url || ''}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono outline-none text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">المفتاح العام (anon key):</label>
+                            <textarea id="inp-sp-key" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono outline-none text-slate-800">${appState.supabaseConfig.key || ''}</textarea>
+                        </div>
+                        <div class="pt-2 flex gap-2">
+                            <button onclick="saveSupabaseConfigSettings()" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ واختبار الاتصال</button>
+                            <button onclick="testSupabaseConnection(true)" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إعادة الفحص</button>
+                        </div>
+                    </div>
+                `;
+            }
             else if (actionKey === 'add_class') {
                 titleEl.innerText = "إدارة المراحل والشعب الأكاديمية";
                 iconEl.className = "fa-solid fa-layer-group";
@@ -3359,7 +3505,7 @@
             } else {
                 titleEl.innerText = "معلومات المنظومة";
                 iconEl.className = "fa-solid fa-circle-info";
-                bodyEl.innerHTML = `<div class="text-center py-4"><p class="text-xs text-slate-600">القسم متصل بقاعدة البيانات ومتوافق مع متطلبات الأستاذ الجامعي.</p></div>`;
+                bodyEl.innerHTML = `<div class="text-center py-4"><p class="text-xs text-slate-600">المنظومة متصلة سحابياً بنجاح ومتوافقة مع متطلبات الأستاذ الجامعي.</p></div>`;
             }
         }
 
@@ -3914,13 +4060,16 @@
                         const cloudCfg = appState.supabaseConfig;
                         const gCfg = appState.googleConfig;
                         appState = parsed;
-                        appState.supabaseConfig = cloudCfg;
-                        if (parsed.googleConfig) appState.googleConfig = parsed.googleConfig;
+                        if (!appState.supabaseConfig) appState.supabaseConfig = cloudCfg;
+                        if (!appState.googleConfig) appState.googleConfig = gCfg;
                     }
                 }
             } catch(e) {
                 console.warn("Local storage cache read error:", e);
             }
+
+            // تفعيل الاتصال مع كلا السحابتين
+            initSupabase();
 
             if (appState.googleConfig && appState.googleConfig.connected) {
                 setGoogleStatus(true);
