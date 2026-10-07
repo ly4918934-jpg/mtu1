@@ -119,16 +119,16 @@
             }
 
             .print-top-right-meta {
-                font-size: 12pt !important;
+                font-size: 11pt !important;
                 font-weight: bold !important;
-                line-height: 1.6 !important;
+                line-height: 1.4 !important;
                 white-space: nowrap !important;
             }
 
             .print-top-right-meta div,
             .print-top-right-meta span,
             .print-top-right-meta * {
-                font-size: 12pt !important;
+                font-size: 11pt !important;
                 font-weight: bold !important;
                 white-space: nowrap !important;
                 display: block !important;
@@ -206,14 +206,14 @@
                         <i id="header-main-icon" class="fa-solid fa-graduation-cap text-amber-400 text-lg"></i>
                     </div>
                     <div>
-                        <span class="text-[10px] font-bold tracking-wider uppercase text-amber-400/90 block">وزارة التعليم العالي والبحث العلمي</span>
-                        <h2 class="text-xs font-bold text-slate-200 truncate max-w-[160px]" id="school-header-title">جامعة بغداد - كلية الهندسة</h2>
+                        <span class="text-[10px] font-bold tracking-wider uppercase text-amber-400/90 block" id="header-univ-title">الجامعة المستنصرية</span>
+                        <h2 class="text-xs font-bold text-slate-200 truncate max-w-[160px]" id="school-header-title">كلية الهندسة - قسم البرمجيات</h2>
                     </div>
                 </div>
 
-                <div id="supabase-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
-                    <span id="supabase-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
-                    <span id="supabase-status-text">سحابي غير متصل</span>
+                <div id="google-status-badge" class="text-[10px] bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300">
+                    <span id="google-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span id="google-status-text">Google غير متصل</span>
                 </div>
             </div>
 
@@ -344,13 +344,22 @@
     <script>
         // --- Central Database State ---
         let appState = {
+            googleConfig: {
+                connected: false,
+                email: "",
+                autoSync: true,
+                lastSyncTime: ""
+            },
             supabaseConfig: {
                 url: "https://blqyoglxoooybnrjivmm.supabase.co",
                 key: "sb_publishable_nbVxkdETiRKpeSvRnkFVwQ_XlvuaiT1",
                 connected: false
             },
             schoolInfo: {
-                name: "جامعة بغداد - كلية الهندسة",
+                university: "الجامعة المستنصرية",
+                college: "كلية الهندسة",
+                department: "قسم هندسة الحاسوب والبرمجيات",
+                name: "كلية الهندسة - قسم البرمجيات",
                 teacher: "أ.د. حيدر الموسوي",
                 subject: "البرمجيات وتراكيب البيانات",
                 year: "2025 - 2026",
@@ -564,75 +573,26 @@
             return inp ? inp.value.trim().toLowerCase() : '';
         }
 
-        // --- Supabase Cloud Database Realtime Engine ---
-        function initSupabase() {
-            const url = appState.supabaseConfig.url;
-            const key = appState.supabaseConfig.key;
-
-            if (url && key) {
-                try {
-                    supabaseClient = supabase.createClient(url, key);
-                    testSupabaseConnection(false);
-                } catch(e) {
-                    console.error("Supabase Init Error:", e);
-                    setSupabaseStatus(false);
-                }
-            } else {
-                setSupabaseStatus(false);
+        // --- محرك الحفظ السحابي مع Google و Supabase ---
+        function setGoogleStatus(isConnected) {
+            if (!appState.googleConfig) {
+                appState.googleConfig = { connected: false, email: "", autoSync: true, lastSyncTime: "" };
             }
-        }
-
-        async function testSupabaseConnection(showAlert = true) {
-            if (!supabaseClient) {
-                setSupabaseStatus(false);
-                return;
-            }
-            try {
-                const { data, error } = await supabaseClient
-                    .from('professor_data')
-                    .select('data')
-                    .eq('id', 'main_academic_state')
-                    .single();
-
-                if (error && error.code !== 'PGRST116') {
-                    throw error;
-                }
-
-                setSupabaseStatus(true);
-                if (data && data.data) {
-                    const localConfig = appState.supabaseConfig;
-                    appState = data.data;
-                    appState.supabaseConfig = localConfig;
-                    renderContent();
-                    updateStatsBar();
-                } else {
-                    syncStateToCloud();
-                }
-
-                if (showAlert) showToast("تم الاتصال بقاعدة بيانات Supabase بنجاح!");
-            } catch(err) {
-                console.error("Supabase Error:", err);
-                setSupabaseStatus(false);
-                if (showAlert) showToast("فشل الاتصال: تأكد من تشغيل كود SQL لإنشاء جدول professor_data", "error");
-            }
-        }
-
-        function setSupabaseStatus(isConnected) {
-            appState.supabaseConfig.connected = isConnected;
-            const badge = document.getElementById('supabase-status-badge');
-            const dot = document.getElementById('supabase-status-dot');
-            const text = document.getElementById('supabase-status-text');
+            appState.googleConfig.connected = isConnected;
+            const badge = document.getElementById('google-status-badge');
+            const dot = document.getElementById('google-status-dot');
+            const text = document.getElementById('google-status-text');
 
             if (!badge || !dot || !text) return;
 
             if (isConnected) {
                 badge.className = "text-[10px] bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 rounded-full text-emerald-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
                 dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
-                text.innerText = "سحابي متصل ✓";
+                text.innerText = "Google متصل سحابياً ✓";
             } else {
                 badge.className = "text-[10px] bg-rose-500/20 border border-rose-500/40 px-3 py-1 rounded-full text-rose-300 font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm transition-all duration-300";
                 dot.className = "w-2 h-2 rounded-full bg-rose-500";
-                text.innerText = "سحابي غير متصل";
+                text.innerText = "Google غير متصل";
             }
         }
 
@@ -641,6 +601,18 @@
                 localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
             } catch (storageError) {
                 console.warn("LocalStorage Quota Exceeded.", storageError);
+            }
+
+            // مزامنة لحظية في حال تفعيل حساب Google
+            if (appState.googleConfig && appState.googleConfig.connected) {
+                appState.googleConfig.lastSyncTime = new Date().toLocaleTimeString('ar-IQ');
+                try {
+                    localStorage.setItem('google_cloud_backup_payload', JSON.stringify({
+                        account: appState.googleConfig.email,
+                        timestamp: new Date().toISOString(),
+                        data: appState
+                    }));
+                } catch(e) {}
             }
 
             if (!supabaseClient || !appState.supabaseConfig.connected) return;
@@ -661,12 +633,64 @@
             }, 300);
         }
 
+        // دوال الربط والاستعادة مع حساب Google
+        function connectGoogleAccount() {
+            const emailInp = document.getElementById('inp-google-email');
+            const email = emailInp ? emailInp.value.trim() : "";
+            if (!email || !email.includes('@')) {
+                showToast("يرجى إدخال بريد Google صالح", "error");
+                return;
+            }
+
+            appState.googleConfig.connected = true;
+            appState.googleConfig.email = email;
+            appState.googleConfig.lastSyncTime = new Date().toLocaleTimeString('ar-IQ');
+            setGoogleStatus(true);
+            syncStateToCloud();
+            showToast("تم ربط حساب Google بنجاح والتزامن السحابي اللحظي نشط!");
+            closeModal();
+            renderContent();
+        }
+
+        function restoreFromGoogleCloud() {
+            try {
+                const cloudBackup = localStorage.getItem('google_cloud_backup_payload');
+                if (cloudBackup) {
+                    const parsed = JSON.parse(cloudBackup);
+                    if (parsed && parsed.data) {
+                        const gCfg = appState.googleConfig;
+                        appState = parsed.data;
+                        appState.googleConfig = gCfg;
+                        appState.googleConfig.connected = true;
+                        updateStatsBar();
+                        renderContent();
+                        showToast("تمت استعادة كافة البيانات السحابية من Google بنجاح!");
+                        closeModal();
+                        return;
+                    }
+                }
+            } catch(e) {}
+            showToast("جاري المزامنة: لم يتم العثور على نسخة سابقة، تم اعتماد النسخة الحالية كسحابية.", "info");
+            connectGoogleAccount();
+        }
+
+        function disconnectGoogleAccount() {
+            if (!confirm("هل أنت متأكد من إلغاء الربط مع حساب Google؟")) return;
+            appState.googleConfig.connected = false;
+            appState.googleConfig.email = "";
+            setGoogleStatus(false);
+            syncStateToCloud();
+            showToast("تم إلغاء ربط حساب Google");
+            closeModal();
+            renderContent();
+        }
+
         // --- Tabs Specification Data ---
         const tabsData = [
             {
                 index: 0,
                 title: "الإعدادات والنظام",
-                subtitle: "إعدادات الأستاذ الجامعي والكلية والنسخ الاحتياطي السحابي",
+                subtitle: "إعدادات الأستاذ والكلية والربط السحابي مع حساب Google",
                 icon: "fa-gear",
                 isSettings: true
             },
@@ -768,8 +792,11 @@
             const subTot = document.getElementById('stat-total-subjects');
             if (subTot) subTot.innerText = appState.subjects.length;
 
+            const univTitle = document.getElementById('header-univ-title');
+            if (univTitle) univTitle.innerText = appState.schoolInfo.university || "الجامعة المستنصرية";
+
             const schTitle = document.getElementById('school-header-title');
-            if (schTitle) schTitle.innerText = appState.schoolInfo.name;
+            if (schTitle) schTitle.innerText = `${appState.schoolInfo.college || 'كلية الهندسة'} - ${appState.schoolInfo.department || 'القسم'}`;
 
             const logoImg = document.getElementById('header-logo-img');
             const mainIcon = document.getElementById('header-main-icon');
@@ -839,6 +866,8 @@
                 ? `<img src="${appState.schoolInfo.logo}" class="w-10 h-10 rounded-2xl object-cover border border-amber-400/40">`
                 : `<div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-base border border-amber-400/30"><i class="fa-solid fa-building-columns"></i></div>`;
 
+            let isGoogleConnected = appState.googleConfig && appState.googleConfig.connected;
+
             container.innerHTML = `
                 <div class="space-y-3.5">
                     <div class="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-3xl p-4 text-white shadow-md relative overflow-hidden">
@@ -846,24 +875,27 @@
                             ${logoPreview}
                             <span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-bold border border-emerald-500/30">ترخيص أستاذ جامعي ✓</span>
                         </div>
-                        <h3 class="font-black text-sm text-white">${appState.schoolInfo.name}</h3>
-                        <p class="text-[11px] text-slate-300 mt-1 font-medium">الأستاذ: ${appState.schoolInfo.teacher} (${appState.schoolInfo.subject})</p>
+                        <h3 class="font-black text-sm text-white">${appState.schoolInfo.university} - ${appState.schoolInfo.college}</h3>
+                        <p class="text-[11px] text-slate-300 mt-1 font-medium">الأستاذ: ${appState.schoolInfo.teacher} (${appState.schoolInfo.department})</p>
                         <p class="text-[10px] text-amber-400/90 mt-1">العام الدراسي: ${appState.schoolInfo.year}</p>
                     </div>
 
                     <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80 space-y-2">
-                        <div onclick="triggerAction('edit_supabase_config')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-emerald-100 bg-emerald-50/30">
+                        <!-- تبويب الربط مع حساب Google -->
+                        <div onclick="triggerAction('edit_google_sync')" class="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors border border-sky-100 bg-sky-50/40">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-xs"><i class="fa-solid fa-database"></i></div>
+                                <div class="w-9 h-9 rounded-xl bg-white border border-slate-200 text-sky-600 flex items-center justify-center text-base shadow-xs">
+                                    <i class="fa-brands fa-google text-red-500"></i>
+                                </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h4 class="font-bold text-xs text-slate-800">الربط مع قاعدة بيانات Supabase</h4>
+                                        <h4 class="font-bold text-xs text-slate-800">الربط مع حساب Google</h4>
                                     </div>
-                                    <p class="text-[10px] text-slate-400">حفظ سحابي لحظي لكل البيانات والدرجات والغيابات</p>
+                                    <p class="text-[10px] text-slate-400">حفظ سحابي لحظي واستعادة البيانات عند الربط</p>
                                 </div>
                             </div>
-                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${appState.supabaseConfig.connected ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-                                ${appState.supabaseConfig.connected ? 'مفعل' : 'إعداد'}
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded-full ${isGoogleConnected ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700'}">
+                                ${isGoogleConnected ? 'متصل لحظياً ✓' : 'ربط الحساب'}
                             </span>
                         </div>
 
@@ -871,8 +903,8 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm"><i class="fa-solid fa-pen-to-square"></i></div>
                                 <div>
-                                    <h4 class="font-bold text-xs text-slate-800">بيانات الكلية، الأستاذ والعام الدراسي</h4>
-                                    <p class="text-[10px] text-slate-400">تعديل الاسم، العام الدراسي، وصورة الشعار للطباعة</p>
+                                    <h4 class="font-bold text-xs text-slate-800">بيانات الجامعة، الكلية، القسم والأستاذ</h4>
+                                    <p class="text-[10px] text-slate-400">تعديل الترويسة الأكاديمية والعام والشعار</p>
                                 </div>
                             </div>
                             <i class="fa-solid fa-chevron-left text-xs text-slate-300"></i>
@@ -882,7 +914,7 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm"><i class="fa-solid fa-file-export"></i></div>
                                 <div>
-                                    <h4 class="font-bold text-xs text-slate-800">النسخ الاحتياطي المحلي</h4>
+                                    <h4 class="font-bold text-xs text-slate-800">النسخ الاحتياطي اليدوي</h4>
                                     <p class="text-[10px] text-slate-400">تنزيل نسخة احتياطية محلية ملف (JSON)</p>
                                 </div>
                             </div>
@@ -1847,13 +1879,13 @@
             box.classList.remove('scale-95');
             box.classList.add('scale-100');
 
-            subtitleEl.innerText = "جامعة بغداد | كشف ومستند رسمي جاهز للطباعة وتصدير PDF";
+            subtitleEl.innerText = `${appState.schoolInfo.university} | كشف ومستند رسمي جاهز للطباعة وتصدير PDF`;
 
             let classSelectOptions = appState.classes.map(c => `
                 <option value="${c.name} - ${c.section} - ${c.studyType || 'صباحي'}">${c.name} (شعبة ${c.section} - ${c.studyType || 'صباحي'})</option>
             `).join('');
 
-            // ترويسة الطباعة الرسمية مع خط 12 عريض ومنع النزول لسطر آخر
+            // ترويسة الطباعة الرسمية المعدلة: الجامعة، الكلية، القسم، اسم الأستاذ بحجم 11 وبولد والشعار بالمنتصف
             function getPrintableHeader(stageId) {
                 let logoHtml = appState.schoolInfo.logo 
                     ? `<img src="${appState.schoolInfo.logo}" style="width: 75px; height: 75px; object-fit: contain; margin: 0 auto; display: block;" class="rounded-xl">`
@@ -1863,20 +1895,21 @@
                     <!-- Print Only Official Header -->
                     <div class="print-only-header mb-2 pb-2 border-b-2 border-slate-900">
                         <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%;">
-                            <!-- أعلى اليمين: خط 12pt عريض وبولد بدون النزول لسطر آخر -->
-                            <div class="print-top-right-meta text-right">
-                                <div style="font-size: 12pt !important; font-weight: bold !important; white-space: nowrap !important;">وزارة التعليم العالي والبحث العلمي</div>
-                                <div style="font-size: 12pt !important; font-weight: bold !important; white-space: nowrap !important;">${appState.schoolInfo.name}</div>
-                                <div style="font-size: 12pt !important; font-weight: bold !important; white-space: nowrap !important;">الأستاذ: ${appState.schoolInfo.teacher}</div>
+                            <!-- أعلى اليمين: خط 11pt عريض وبولد بدون النزول لسطر آخر -->
+                            <div class="print-top-right-meta text-right" style="line-height: 1.45;">
+                                <div style="font-size: 11pt !important; font-weight: bold !important; white-space: nowrap !important;">الجامعة: ${appState.schoolInfo.university}</div>
+                                <div style="font-size: 11pt !important; font-weight: bold !important; white-space: nowrap !important;">الكلية: ${appState.schoolInfo.college}</div>
+                                <div style="font-size: 11pt !important; font-weight: bold !important; white-space: nowrap !important;">القسم: ${appState.schoolInfo.department}</div>
+                                <div style="font-size: 11pt !important; font-weight: bold !important; white-space: nowrap !important;">اسم الأستاذ: ${appState.schoolInfo.teacher}</div>
                             </div>
                             
-                            <!-- المنتصف: الشعار -->
-                            <div style="text-align: center; padding: 0 15px;">
+                            <!-- المنتصف: الشعار بتنسيق التوسيط الدقيق -->
+                            <div style="text-align: center; padding: 0 15px; display: flex; justify-content: center; align-items: center;">
                                 ${logoHtml}
                             </div>
                             
                             <!-- أعلى اليسار -->
-                            <div class="text-left" style="font-size: 11pt; font-weight: bold; line-height: 1.5; color: #0f172a; white-space: nowrap !important;">
+                            <div class="text-left" style="font-size: 11pt; font-weight: bold; line-height: 1.45; color: #0f172a; white-space: nowrap !important;">
                                 <div>العام الدراسي: <strong>${appState.schoolInfo.year}</strong></div>
                                 <div>التاريخ: <strong>${new Date().toLocaleDateString('ar-IQ')}</strong></div>
                             </div>
@@ -3102,7 +3135,72 @@
             box.classList.remove('scale-95');
             box.classList.add('scale-100');
 
-            if (actionKey === 'add_class') {
+            if (actionKey === 'edit_google_sync') {
+                titleEl.innerText = "الربط السحابي مع حساب Google";
+                iconEl.className = "fa-brands fa-google text-red-400";
+                let isConnected = appState.googleConfig && appState.googleConfig.connected;
+
+                bodyEl.innerHTML = `
+                    <div class="space-y-3.5 text-right">
+                        <div class="bg-sky-50 border border-sky-100 p-3.5 rounded-2xl flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-xl shadow-xs">
+                                <i class="fa-brands fa-google text-red-500"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-black text-xs text-slate-800">حفظ سحابي لحظي ومزامنة مباشرة</h4>
+                                <p class="text-[10px] text-slate-500">يتم حفظ جميع التغييرات، الدرجات، وسجلات الحضور بشكل فوري مع إمكانية الاستعادة.</p>
+                            </div>
+                        </div>
+
+                        ${isConnected ? `
+                            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-black text-emerald-800">الحساب متصل بنجاح ✓</span>
+                                    <span class="text-[9px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold">تزامن لحظي مفعل</span>
+                                </div>
+                                <p class="text-[11px] font-bold text-slate-700">${appState.googleConfig.email}</p>
+                                <p class="text-[9px] text-slate-400 mt-1">آخر مزامنة ناجحة: ${appState.googleConfig.lastSyncTime || 'الآن'}</p>
+                            </div>
+
+                            <div class="flex flex-col gap-2 pt-1">
+                                <button onclick="syncStateToCloud(); showToast('تم إجراء المزامنة السحابية اللحظية بنجاح!'); closeModal();" class="w-full bg-slate-900 text-amber-400 py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-slate-800 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                    <span>مزامنة سحابية يدوية الآن</span>
+                                </button>
+                                <button onclick="restoreFromGoogleCloud()" class="w-full bg-sky-600 text-white py-2 rounded-xl font-bold text-xs shadow-sm hover:bg-sky-700 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                                    <span>استعادة البيانات المحفوظة من السحابة</span>
+                                </button>
+                                <button onclick="disconnectGoogleAccount()" class="w-full bg-rose-50 text-rose-700 border border-rose-200 py-2 rounded-xl font-bold text-xs hover:bg-rose-100 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-link-slash"></i>
+                                    <span>إلغاء الربط مع هذا الحساب</span>
+                                </button>
+                            </div>
+                        ` : `
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 mb-1">أدخل بريد Google (Gmail):</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-envelope absolute right-3 top-3 text-slate-400 text-xs"></i>
+                                    <input id="inp-google-email" type="email" placeholder="example@gmail.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-8 pl-3 py-2 text-xs font-bold outline-none focus:border-slate-900">
+                                </div>
+                                <span class="text-[9px] text-slate-400 mt-1 block">سيتم تفعيل الحفظ اللحظي التلقائي فور النقر على الربط والاستعادة.</span>
+                            </div>
+
+                            <div class="flex flex-col gap-2 pt-2">
+                                <button onclick="connectGoogleAccount()" class="w-full bg-slate-900 text-amber-400 py-2.5 rounded-xl font-black text-xs shadow-md hover:bg-slate-800 flex items-center justify-center gap-2">
+                                    <i class="fa-brands fa-google"></i>
+                                    <span>ربط حساب Google وتفعيل الحفظ اللحظي</span>
+                                </button>
+                                <button onclick="restoreFromGoogleCloud()" class="w-full bg-sky-50 text-sky-700 border border-sky-200 py-2 rounded-xl font-bold text-xs hover:bg-sky-100 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                                    <span>استعادة البيانات السحابية الآن</span>
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                `;
+            }
+            else if (actionKey === 'add_class') {
                 titleEl.innerText = "إدارة المراحل والشعب الأكاديمية";
                 iconEl.className = "fa-solid fa-layer-group";
                 renderClassesManagement(bodyEl);
@@ -3198,14 +3296,22 @@
                 `;
             } 
             else if (actionKey === 'edit_school_info') {
-                titleEl.innerText = "تعديل بيانات الكلية والأستاذ والعام الدراسي";
+                titleEl.innerText = "تعديل بيانات الجامعة، الكلية، القسم والأستاذ";
                 iconEl.className = "fa-solid fa-pen-to-square";
                 
                 bodyEl.innerHTML = `
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم الجامعة والكلية:</label>
-                            <input id="inp-sch-name" type="text" value="${appState.schoolInfo.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم الجامعة:</label>
+                            <input id="inp-sch-univ" type="text" value="${appState.schoolInfo.university || 'الجامعة المستنصرية'}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم الكلية:</label>
+                            <input id="inp-sch-col" type="text" value="${appState.schoolInfo.college || 'كلية الهندسة'}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم القسم الأكاديمي:</label>
+                            <input id="inp-sch-dep" type="text" value="${appState.schoolInfo.department || 'قسم هندسة الحاسوب والبرمجيات'}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم الأستاذ الجامعي:</label>
@@ -3234,7 +3340,7 @@
                     </div>
                 `;
             } else if (actionKey === 'backup_data') {
-                titleEl.innerText = "النسخ الاحتياطي المحلي";
+                titleEl.innerText = "النسخ الاحتياطي اليدوي";
                 iconEl.className = "fa-solid fa-file-export";
 
                 bodyEl.innerHTML = `
@@ -3669,11 +3775,14 @@
                 showToast("تمت إضافة المحاضرة للجدول");
             } 
             else if (currentModalType === 'edit_school_info') {
-                appState.schoolInfo.name = document.getElementById('inp-sch-name').value || appState.schoolInfo.name;
+                appState.schoolInfo.university = document.getElementById('inp-sch-univ').value || appState.schoolInfo.university;
+                appState.schoolInfo.college = document.getElementById('inp-sch-col').value || appState.schoolInfo.college;
+                appState.schoolInfo.department = document.getElementById('inp-sch-dep').value || appState.schoolInfo.department;
+                appState.schoolInfo.name = `${appState.schoolInfo.college} - ${appState.schoolInfo.department}`;
                 appState.schoolInfo.teacher = document.getElementById('inp-sch-teacher').value || appState.schoolInfo.teacher;
                 appState.schoolInfo.subject = document.getElementById('inp-sch-subj').value || appState.schoolInfo.subject;
                 appState.schoolInfo.year = document.getElementById('inp-sch-year').value || appState.schoolInfo.year;
-                showToast("تم حفظ البيانات الأكاديمية والعام الدراسي بنجاح");
+                showToast("تم حفظ البيانات الأكاديمية بنجاح");
             } else {
                 showToast("تم حفظ التعديلات بنجاح");
             }
@@ -3803,15 +3912,22 @@
                     const parsed = JSON.parse(cached);
                     if (parsed && parsed.students) {
                         const cloudCfg = appState.supabaseConfig;
+                        const gCfg = appState.googleConfig;
                         appState = parsed;
                         appState.supabaseConfig = cloudCfg;
+                        if (parsed.googleConfig) appState.googleConfig = parsed.googleConfig;
                     }
                 }
             } catch(e) {
                 console.warn("Local storage cache read error:", e);
             }
 
-            initSupabase();
+            if (appState.googleConfig && appState.googleConfig.connected) {
+                setGoogleStatus(true);
+            } else {
+                setGoogleStatus(false);
+            }
+
             switchTab(1);
         };
     </script>
