@@ -3829,14 +3829,25 @@
             renderContent();
         }
 
-        // 2. إدارة الطلبة المسجلين
-        function renderRegisteredStudentsList(container) {
-            let sortedStudents = sortStudentsAlphabetically(appState.students);
+        // 2. إدارة الطلبة المسجلين مع البحث الفوري بالاسم
+        function normalizeStudentSearchText(value) {
+            return String(value || '')
+                .toLocaleLowerCase('ar')
+                .normalize('NFD')
+                .replace(/[\u064B-\u065F\u0670]/g, '')
+                .replace(/[أإآٱ]/g, 'ا')
+                .replace(/ى/g, 'ي')
+                .replace(/ة/g, 'ه')
+                .trim();
+        }
 
-            let studentRows = sortedStudents.map((s, idx) => `
-                <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2 flex justify-between items-center" id="std-card-${s.id}">
+        function renderRegisteredStudentsList(container) {
+            const sortedStudents = sortStudentsAlphabetically(appState.students);
+
+            const studentRows = sortedStudents.map((s, idx) => `
+                <div class="registered-student-card bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2 flex justify-between items-center" id="std-card-${s.id}" data-student-name="${String(s.name || '').replace(/&/g, '&amp;').replace(/\"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}">
                     <div class="flex items-center gap-2">
-                        <span class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">${idx + 1}</span>
+                        <span class="registered-student-index w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">${idx + 1}</span>
                         <div>
                             <h5 class="font-extrabold text-xs text-slate-800">${s.name}</h5>
                             <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-medium">
@@ -3850,7 +3861,7 @@
                             <i class="fa-solid fa-pen-to-square"></i>
                             <span>تعديل</span>
                         </button>
-                        <button onclick="deleteStudentData(${s.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-bold text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1">
+                        <button onclick="deleteStudentData(${s.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-bold text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1" aria-label="حذف الطالب">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
@@ -3860,9 +3871,51 @@
             container.innerHTML = `
                 <div class="space-y-2">
                     <p class="text-[10px] text-slate-500 font-bold mb-2">قائمة الطلبة المسجلين مرتبة أبجدياً (تعديل وحذف):</p>
-                    <div class="max-h-80 overflow-y-auto custom-scroll">${studentRows || '<p class="text-xs text-center text-slate-400 py-3">لا يوجد طلبة مسجلين حالياً</p>'}</div>
+                    <div class="relative mb-2">
+                        <i class="fa-solid fa-magnifying-glass absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input id="registered-students-search" type="search" oninput="filterRegisteredStudentsList()" placeholder="ابحث عن اسم طالب..." autocomplete="off" class="w-full bg-slate-50 border border-slate-200 rounded-xl pr-8 pl-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-slate-900">
+                    </div>
+                    <p id="registered-students-count" class="text-[10px] text-slate-500 font-bold mb-1">عدد الطلبة: ${sortedStudents.length}</p>
+                    <div id="registered-students-list" class="max-h-80 overflow-y-auto custom-scroll">
+                        ${studentRows || ''}
+                        <p id="registered-students-empty" class="text-xs text-center text-slate-400 py-3 ${sortedStudents.length ? 'hidden' : ''}">${sortedStudents.length ? 'لا توجد أسماء مطابقة للبحث' : 'لا يوجد طلبة مسجلين حالياً'}</p>
+                    </div>
                 </div>
             `;
+        }
+
+        function filterRegisteredStudentsList() {
+            const searchInput = document.getElementById('registered-students-search');
+            const list = document.getElementById('registered-students-list');
+            if (!searchInput || !list) return;
+
+            const query = normalizeStudentSearchText(searchInput.value);
+            const cards = Array.from(list.querySelectorAll('.registered-student-card'));
+            let visibleCount = 0;
+
+            cards.forEach((card, index) => {
+                const name = normalizeStudentSearchText(card.dataset.studentName || card.querySelector('h5')?.textContent || '');
+                const matches = !query || name.includes(query);
+                card.classList.toggle('hidden', !matches);
+                if (matches) {
+                    visibleCount++;
+                    const rowNumber = card.querySelector('.registered-student-index');
+                    if (rowNumber) rowNumber.textContent = String(visibleCount);
+                }
+            });
+
+            const count = document.getElementById('registered-students-count');
+            if (count) count.textContent = query
+                ? `نتائج البحث: ${visibleCount} من ${cards.length}`
+                : `عدد الطلبة: ${cards.length}`;
+
+            const empty = document.getElementById('registered-students-empty');
+            if (empty) {
+                empty.classList.toggle('hidden', visibleCount > 0);
+                empty.textContent = cards.length === 0
+                    ? 'لا يوجد طلبة مسجلين حالياً'
+                    : 'لا توجد أسماء مطابقة للبحث';
+            }
         }
 
         function deleteStudentData(studentId) {
@@ -4110,11 +4163,26 @@
                 showToast("تمت إضافة المحاضرة للجدول");
             } 
             else if (currentModalType === 'edit_school_info') {
-                appState.schoolInfo.name = document.getElementById('inp-sch-name').value || appState.schoolInfo.name;
-                appState.schoolInfo.teacher = document.getElementById('inp-sch-teacher').value || appState.schoolInfo.teacher;
-                appState.schoolInfo.subject = document.getElementById('inp-sch-subj').value || appState.schoolInfo.subject;
-                appState.schoolInfo.year = document.getElementById('inp-sch-year').value || appState.schoolInfo.year;
-                showToast("تم حفظ البيانات الأكاديمية والعام الدراسي بنجاح");
+                // تهيئة كائن البيانات وضمان قراءة جميع الحقول الظاهرة في النموذج قبل الحفظ.
+                if (!appState.schoolInfo || typeof appState.schoolInfo !== 'object') appState.schoolInfo = {};
+                const schoolNameInput = document.getElementById('inp-sch-name');
+                const universityInput = document.getElementById('inp-sch-university');
+                const collegeInput = document.getElementById('inp-sch-college');
+                const departmentInput = document.getElementById('inp-sch-department');
+                const teacherInput = document.getElementById('inp-sch-teacher');
+                const subjectInput = document.getElementById('inp-sch-subj');
+                const yearInput = document.getElementById('inp-sch-year');
+
+                if (schoolNameInput) appState.schoolInfo.name = schoolNameInput.value.trim() || appState.schoolInfo.name || '';
+                if (universityInput) appState.schoolInfo.university = universityInput.value.trim();
+                if (collegeInput) appState.schoolInfo.college = collegeInput.value.trim();
+                if (departmentInput) appState.schoolInfo.department = departmentInput.value.trim();
+                if (teacherInput) appState.schoolInfo.teacher = teacherInput.value.trim() || appState.schoolInfo.teacher || '';
+                if (subjectInput) appState.schoolInfo.subject = subjectInput.value.trim() || appState.schoolInfo.subject || '';
+                if (yearInput) appState.schoolInfo.year = yearInput.value.trim() || appState.schoolInfo.year || '';
+
+                // تتم الكتابة للحفظ المحلي ومزامنة الخدمات السحابية مباشرة بعد انتهاء هذا الفرع.
+                showToast("تم حفظ بيانات الجامعة والكلية والقسم والأستاذ بنجاح");
             } else if (currentModalType === 'edit_google_config') {
                 const clientInput = document.getElementById('google-client-id-input');
                 if (clientInput) appState.googleConfig.clientId = clientInput.value.trim();
