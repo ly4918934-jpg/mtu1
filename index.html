@@ -555,6 +555,14 @@
         let currentLoadedAttendanceStudents = [];
         let supabaseClient = null;
         let syncTimeout = null;
+        // إدارة طابور الحفظ السحابي: طلب واحد في كل مرة، مع إرسال أحدث نسخة من البيانات.
+        let cloudSyncInProgress = false;
+        let cloudSyncPending = false;
+        let cloudSyncRevision = 0;
+        let cloudSyncSavedRevision = 0;
+        let cloudSyncRetryTimeout = null;
+        let cloudSyncRetryCount = 0;
+        const CLOUD_SYNC_DEBOUNCE_MS = 100;
         let googleAccessToken = null;
         let googleTokenClient = null;
         let googleSyncTimeout = null;
@@ -580,6 +588,12 @@
             appState.classes = Array.isArray(appState.classes) ? appState.classes : [];
             appState.students = Array.isArray(appState.students) ? appState.students : [];
             appState.subjects = Array.isArray(appState.subjects) ? appState.subjects : [];
+            // الحقول الجديدة تحفظ ارتباط المادة بالمرحلة والشعبة ونوع الدراسة؛ المواد القديمة تبقى محفوظة كما هي.
+            appState.subjects.forEach(subject => {
+                if (!subject || typeof subject !== 'object') return;
+                if (subject.section === undefined || subject.section === null) subject.section = '';
+                if (subject.studyType === undefined || subject.studyType === null) subject.studyType = '';
+            });
             appState.schedule = Array.isArray(appState.schedule) ? appState.schedule : [];
             appState.savedSessions = Array.isArray(appState.savedSessions) ? appState.savedSessions : [];
             appState.students.forEach(student => {
@@ -661,10 +675,11 @@
                     appState.supabaseConfig = localConfig;
                     appState.googleConfig = localGoogleConfig;
                     normalizeAppState();
+                    persistLocalState();
                     renderContent();
                     updateStatsBar();
                 } else {
-                    syncStateToCloud();
+                    syncStateToCloud({ immediate: true });
                 }
 
                 if (showAlert) showToast("تم الاتصال بقاعدة بيانات Supabase بنجاح!");
@@ -694,31 +709,89 @@
             }
         }
 
-        function syncStateToCloud() {
+        function persistLocalState() {
             try {
                 localStorage.setItem('sp_academic_local_data', JSON.stringify(appState));
             } catch (storageError) {
-                console.warn("LocalStorage Quota Exceeded.", storageError);
+                console.warn('LocalStorage save error:', storageError);
             }
+        }
+
+        // حفظ محلي فوري، ثم دمج تغييرات الحفظ السحابي المتتابعة في طلب واحد سريع.
+        function syncStateToCloud(options = {}) {
+            persistLocalState();
 
             if (googleAccessToken) scheduleGoogleDriveSync();
 
-            if (!supabaseClient || !appState.supabaseConfig.connected) return;
+            // إذا استنفدت محاولات دفعة سابقة، امنح التغيير الجديد دورة إعادة محاولة جديدة.
+            if (cloudSyncRetryCount >= 5 && cloudSyncSavedRevision < cloudSyncRevision) cloudSyncRetryCount = 0;
+            cloudSyncRevision++;
+            if (!supabaseClient || !appState.supabaseConfig || !appState.supabaseConfig.connected) return;
 
             if (syncTimeout) clearTimeout(syncTimeout);
-            syncTimeout = setTimeout(async () => {
-                try {
-                    await supabaseClient
+            syncTimeout = setTimeout(() => {
+                syncTimeout = null;
+                flushSupabaseSync();
+            }, options.immediate ? 0 : CLOUD_SYNC_DEBOUNCE_MS);
+        }
+
+        async function flushSupabaseSync() {
+            if (!supabaseClient || !appState.supabaseConfig || !appState.supabaseConfig.connected) return;
+            if (cloudSyncInProgress) {
+                cloudSyncPending = true;
+                return;
+            }
+            // يمنع إرسال طلب مكرر إذا كان مؤقت الحفظ ينتظر بينما وصلت آخر نسخة للطابور.
+            if (syncTimeout) {
+                clearTimeout(syncTimeout);
+                syncTimeout = null;
+            }
+
+            cloudSyncInProgress = true;
+            let shouldRetry = false;
+            try {
+                do {
+                    cloudSyncPending = false;
+                    const revisionBeingSaved = cloudSyncRevision;
+                    // Snapshot ثابت يمنع تغيّر الحمولة أثناء انتظار استجابة الشبكة.
+                    const payloadSnapshot = JSON.parse(JSON.stringify(appState));
+                    const { error } = await supabaseClient
                         .from('professor_data')
                         .upsert({
                             id: 'main_academic_state',
-                            data: appState,
+                            data: payloadSnapshot,
                             updated_at: new Date().toISOString()
-                        });
-                } catch (err) {
-                    console.warn("Background cloud sync error:", err);
+                        }, { onConflict: 'id' });
+
+                    if (error) throw error;
+                    cloudSyncSavedRevision = revisionBeingSaved;
+                    cloudSyncRetryCount = 0;
+
+                    // إذا تغيّرت البيانات أثناء الحفظ، ارسل أحدث نسخة قبل إيقاف الطابور.
+                    if (cloudSyncRevision > revisionBeingSaved) cloudSyncPending = true;
+                } while (cloudSyncPending);
+            } catch (err) {
+                shouldRetry = true;
+                console.warn('Supabase cloud save failed; local copy is preserved:', err);
+            } finally {
+                cloudSyncInProgress = false;
+
+                if (cloudSyncPending && !shouldRetry) {
+                    cloudSyncPending = false;
+                    flushSupabaseSync();
                 }
-            }, 300);
+
+                // إعادة محاولة محدودة بتأخير تصاعدي؛ تظل النسخة المحلية محفوظة دائماً.
+                if (shouldRetry && cloudSyncSavedRevision < cloudSyncRevision && cloudSyncRetryCount < 5) {
+                    const delay = Math.min(15000, 1000 * (2 ** cloudSyncRetryCount));
+                    cloudSyncRetryCount++;
+                    if (cloudSyncRetryTimeout) clearTimeout(cloudSyncRetryTimeout);
+                    cloudSyncRetryTimeout = setTimeout(() => {
+                        cloudSyncRetryTimeout = null;
+                        flushSupabaseSync();
+                    }, delay);
+                }
+            }
         }
 
         // --- Google Drive appDataFolder realtime backup/restore engine ---
@@ -857,7 +930,7 @@
             normalizeAppState();
             updateStatsBar();
             renderContent();
-            try { localStorage.setItem('sp_academic_local_data', JSON.stringify(appState)); } catch (e) {}
+            persistLocalState();
             // إبقاء قاعدة Supabase الحالية متزامنة مع البيانات المستعادة أيضاً.
             if (supabaseClient && appState.supabaseConfig.connected) syncStateToCloud();
             return true;
@@ -1768,9 +1841,9 @@
             // SubTab 0: الفصل الأول
             if (activeGradesSubTab === 0) {
                 let rows = filtered.map((s, idx) => {
-                    let t1Exam = s.t1Exam || 0;
-                    let t1Eval = s.t1Eval || 0;
-                    let sum = t1Exam + t1Eval;
+                    let t1Exam = Number(s.t1Exam) || '';
+                    let t1Eval = Number(s.t1Eval) || '';
+                    let sum = (Number(t1Exam) || 0) + (Number(t1Eval) || 0);
                     return `
                         <tr class="border-b border-slate-100 text-[11px]">
                             <td class="p-2 font-bold text-center">${idx+1}</td>
@@ -1812,9 +1885,9 @@
             // SubTab 1: الفصل الثاني
             else if (activeGradesSubTab === 1) {
                 let rows = filtered.map((s, idx) => {
-                    let t2Exam = s.t2Exam || 0;
-                    let t2Eval = s.t2Eval || 0;
-                    let sum = t2Exam + t2Eval;
+                    let t2Exam = Number(s.t2Exam) || '';
+                    let t2Eval = Number(s.t2Eval) || '';
+                    let sum = (Number(t2Exam) || 0) + (Number(t2Eval) || 0);
                     return `
                         <tr class="border-b border-slate-100 text-[11px]">
                             <td class="p-2 font-bold text-center">${idx+1}</td>
@@ -1893,7 +1966,7 @@
             else if (activeGradesSubTab === 3) {
                 let rows = filtered.map((s, idx) => {
                     let saai = (s.t1Exam||0) + (s.t1Eval||0) + (s.t2Exam||0) + (s.t2Eval||0);
-                    let final = s.final || 0;
+                    let final = Number(s.final) || '';
                     return `
                         <tr class="border-b border-slate-100 text-[11px]">
                             <td class="p-2 font-bold text-center">${idx+1}</td>
@@ -2028,6 +2101,151 @@
             showToast("تم حفظ درجات الفاينل بنجاح!");
         }
 
+        // --- Subject-aware report filters (used by all report categories) ---
+        let activeReportKey = '';
+
+        function normalizeReportValue(value) {
+            return String(value == null ? '' : value).trim().toLocaleLowerCase('ar');
+        }
+
+        function getReportSubjectNames() {
+            const names = new Set();
+            (appState.subjects || []).forEach(item => { if (item && item.name) names.add(String(item.name).trim()); });
+            (appState.students || []).forEach(student => {
+                if (student && student.subject) names.add(String(student.subject).trim());
+                (student && Array.isArray(student.behaviorLog) ? student.behaviorLog : []).forEach(log => {
+                    if (log && log.subject) names.add(String(log.subject).trim());
+                });
+            });
+            (appState.savedSessions || []).forEach(session => { if (session && session.subject) names.add(String(session.subject).trim()); });
+            names.delete('');
+            return Array.from(names).sort((a, b) => a.localeCompare(b, 'ar'));
+        }
+
+        function getSelectedReportSubject() {
+            const select = document.getElementById('rep-subject-filter');
+            return select ? select.value : 'all';
+        }
+
+        function reportSubjectMatchesStudent(student, subjectName) {
+            if (!subjectName || subjectName === 'all') return true;
+            const wanted = normalizeReportValue(subjectName);
+            const directSubject = normalizeReportValue(student && student.subject);
+            if (directSubject === wanted) return true;
+
+            const behaviorLogs = student && Array.isArray(student.behaviorLog) ? student.behaviorLog : [];
+            if (behaviorLogs.some(log => normalizeReportValue(log && log.subject) === wanted)) return true;
+            if (directSubject) return false;
+
+            // للطلبة الذين أضيفوا قبل ربطهم بمادة مباشرة، نستعين بربط المادة بالمرحلة.
+            const subjectRecord = (appState.subjects || []).find(item => normalizeReportValue(item && item.name) === wanted);
+            return Boolean(subjectRecord && normalizeReportValue(student && student.class) === normalizeReportValue(subjectRecord.class));
+        }
+
+        function reportClassMatchesSession(session, classFilterVal) {
+            if (!classFilterVal || classFilterVal === 'all') return true;
+            const parts = classFilterVal.split(' - ');
+            return normalizeReportValue(session.className) === normalizeReportValue(parts[0]) &&
+                normalizeReportValue(session.section) === normalizeReportValue(parts[1]) &&
+                normalizeReportValue(session.studyType || 'صباحي') === normalizeReportValue(parts[2] || 'صباحي');
+        }
+
+        function getSubjectSessions(subjectName, classFilterVal = 'all', fromDate = '', toDate = '') {
+            if (!subjectName || subjectName === 'all') return [];
+            return (appState.savedSessions || []).filter(session =>
+                normalizeReportValue(session.subject) === normalizeReportValue(subjectName) &&
+                reportClassMatchesSession(session, classFilterVal) &&
+                (!fromDate || String(session.date || '') >= fromDate) &&
+                (!toDate || String(session.date || '') <= toDate)
+            );
+        }
+
+        function filterStudentsForReportSubject(students, subjectName = getSelectedReportSubject()) {
+            if (!subjectName || subjectName === 'all') return students;
+            return students.filter(student => reportSubjectMatchesStudent(student, subjectName));
+        }
+
+        function filterStudentsForAttendanceSubject(students, subjectName = getSelectedReportSubject(), classFilterVal = 'all', fromDate = '', toDate = '') {
+            if (!subjectName || subjectName === 'all') return students;
+            const sessions = getSubjectSessions(subjectName, classFilterVal, fromDate, toDate);
+            const recordedIds = new Set();
+            let hasSessionRoster = false;
+            sessions.forEach(session => {
+                const records = session.records || {};
+                const ids = Object.keys(records);
+                if (ids.length) hasSessionRoster = true;
+                ids.forEach(id => recordedIds.add(String(id)));
+            });
+            if (hasSessionRoster) return students.filter(student => recordedIds.has(String(student.id)));
+            return filterStudentsForReportSubject(students, subjectName);
+        }
+
+        function getSubjectAttendanceMetrics(student, subjectName, classFilterVal = 'all', fromDate = '', toDate = '') {
+            const sessions = getSubjectSessions(subjectName, classFilterVal, fromDate, toDate);
+            let attendanceCount = 0, absentCount = 0, excusedCount = 0;
+            let hasStudentRecord = false;
+            const absenceLogs = [];
+            sessions.forEach(session => {
+                const records = session.records || {};
+                const code = records[student.id] || records[String(student.id)];
+                if (!code) return;
+                hasStudentRecord = true;
+                if (code === 'absent') {
+                    absentCount++;
+                    absenceLogs.push({ date: session.date, day: getDayName(session.date), status: 'غائب' });
+                } else if (code === 'excused') {
+                    excusedCount++;
+                    absenceLogs.push({ date: session.date, day: getDayName(session.date), status: 'مجاز' });
+                } else {
+                    attendanceCount++;
+                }
+            });
+            if (hasStudentRecord) {
+                const totalLectures = attendanceCount + absentCount + excusedCount;
+                return {
+                    attendanceCount, absentCount, excusedCount, totalLectures,
+                    absenceRate: totalLectures ? absentCount / totalLectures * 100 : 0,
+                    absenceLogs: absenceLogs.filter(log => log.status === 'غائب'),
+                    attendanceLogs: absenceLogs,
+                    hasSubjectRecords: true,
+                    absenceDates: absenceLogs.filter(log => log.status === 'غائب').map(log => `${log.day} ${log.date}`)
+                };
+            }
+            return getStudentAbsenceMetrics(student);
+        }
+
+        function handleReportSubjectFilterChange() {
+            const pickedSubject = getSelectedReportSubject();
+            document.querySelectorAll('[id$="-strip-subject"]').forEach(el => {
+                el.textContent = `المادة: ${pickedSubject === 'all' ? 'جميع المواد الدراسية' : pickedSubject}`;
+            });
+            const updateByKey = {
+                att_absence_list: updateAbsenceListReport,
+                att_by_date: updateAttByDateReport,
+                att_monthly: updateMonthlyAttReport,
+                grades_term_specific: updateTermSpecificGradesReport,
+                behavior_summary: updateBehaviorReport,
+                all_students: updateAllStudentsReport,
+                students_by_section: updateStudentsBySectionReport,
+                grades_by_section: updateGradesSectionReport,
+                grades_min_max: updateGradesMinMaxReport,
+                grades_passed: updatePassedReport,
+                grades_failed: updateFailedReport,
+                att_frequent: updateFrequentAbsenceReport,
+                att_exceeded: updateAttExceededReport,
+                att_by_student: updateAttStudentDropdown
+            };
+            if (updateByKey[activeReportKey]) updateByKey[activeReportKey]();
+            else if (activeReportKey === 'students_by_year') updateStudentsByYearReport();
+        }
+
+        function updateStudentsByYearReport() {
+            setPrintHeaderStageLabelUnified('dummy-st', 'all');
+            const totalEl = document.getElementById('students-year-total');
+            if (!totalEl) return;
+            totalEl.textContent = filterStudentsForReportSubject([...appState.students]).length;
+        }
+
         // --- 7. REPORTS TAB RENDERER ---
         function renderReportsTab(container) {
             container.innerHTML = `
@@ -2122,6 +2340,7 @@
 
         // --- DYNAMIC REPORT GENERATOR FUNCTION ---
         function generateReport(reportKey) {
+            activeReportKey = reportKey;
             currentModalType = "report_view";
             const modal = document.getElementById('action-modal');
             const box = document.getElementById('modal-box');
@@ -2141,6 +2360,9 @@
             `).join('');
             let reportStudentOptions = sortStudentsAlphabetically(appState.students).map(st =>
                 `<option value="${String(st.id)}">${st.name} (${st.class} - ${st.section})</option>`
+            ).join('');
+            let reportSubjectOptions = getReportSubjectNames().map(name =>
+                `<option value="${name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}">${name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</option>`
             ).join('');
 
             // ترويسة الطباعة الرسمية: الجامعة والكلية والقسم والأستاذ بخط 11 وبنقاط تعداد
@@ -2190,6 +2412,15 @@
                                 <span>طباعة / حفظ PDF</span>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- فلتر المادة الدراسية موحد لجميع التقارير ويرتبط بقائمة المواد وجلسات الحضور -->
+                    <div class="no-print mb-2.5 print-hidden-control">
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المادة الدراسية:</label>
+                        <select id="rep-subject-filter" onchange="handleReportSubjectFilterChange()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900">
+                            <option value="all">جميع المواد الدراسية</option>
+                            ${reportSubjectOptions}
+                        </select>
                     </div>
 
                     <!-- متن الصفحة: مستطيل بعرض السطر بالكامل يضم المرحلة والشعبة ونوع الدراسة والمادة -->
@@ -2481,7 +2712,32 @@
                 `;
                 updateGradesSectionReport();
             } 
-            // 9. تقرير الطلبة الناجحين
+            // 9. تقرير أعلى وأدنى الدرجات
+            else if (reportKey === 'grades_min_max') {
+                titleEl.innerText = "تقرير أعلى وأدنى الدرجات";
+                iconEl.className = "fa-solid fa-chart-line";
+                bodyEl.innerHTML = getPrintableHeader("rep-minmax-stage") + `
+                    <div class="no-print mb-2.5 print-hidden-control">
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة ونوع الدراسة:</label>
+                        <select id="rep-minmax-class" onchange="updateGradesMinMaxReport()" class="w-full bg-slate-50 border p-2 rounded-xl text-xs font-bold">
+                            <option value="all">جميع المراحل والشعب</option>
+                            ${classSelectOptions}
+                        </select>
+                    </div>
+                    ${getSearchInputHtml("updateGradesMinMaxReport")}
+                    <div id="grades-minmax-summary" class="grid grid-cols-2 gap-2 mb-3"></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right">
+                            <thead class="bg-slate-900 text-amber-400 text-[10px]">
+                                <tr><th class="p-2 text-center">#</th><th class="p-2">اسم الطالب</th><th class="p-2">المرحلة والشعبة</th><th class="p-2">المادة</th><th class="p-2 text-center">المجموع</th></tr>
+                            </thead>
+                            <tbody id="grades-minmax-report-body"></tbody>
+                        </table>
+                    </div>
+                `;
+                updateGradesMinMaxReport();
+            }
+            // 10. تقرير الطلبة الناجحين
             else if (reportKey === 'grades_passed') {
                 titleEl.innerText = "تقرير الطلبة الناجحين";
                 iconEl.className = "fa-solid fa-circle-check";
@@ -2601,9 +2857,10 @@
                 bodyEl.innerHTML = getPrintableHeader("dummy-st") + `
                     <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl text-center mb-3">
                         <h4 class="font-extrabold text-sm text-indigo-900">السنة الدراسية الحالية: ${appState.schoolInfo.year}</h4>
-                        <p class="text-xs text-indigo-600 mt-1">إجمالي عدد الطلبة المقيدين: <strong>${appState.students.length}</strong> طالب وطالبة</p>
+                        <p class="text-xs text-indigo-600 mt-1">إجمالي عدد الطلبة المقيدين: <strong id="students-year-total">${appState.students.length}</strong> طالب وطالبة</p>
                     </div>
                 `;
+                updateStudentsByYearReport();
             } 
             // 12. حضور طالب أو كل الطلاب
             else if (reportKey === 'att_by_student') {
@@ -2653,7 +2910,8 @@
                 stageEl.innerText = "المرحلة: جميع المراحل";
                 secEl.innerText = "الشعبة: جميع الشعب";
                 studyEl.innerText = "نوع الدراسة: جميع الدراسات";
-                subjEl.innerText = `المادة: ${appState.schoolInfo.subject}`;
+                const selectedSubject = getSelectedReportSubject();
+                subjEl.innerText = `المادة: ${selectedSubject === 'all' ? 'جميع المواد الدراسية' : selectedSubject}`;
             } else {
                 const parts = classVal.split(' - ');
                 const cName = parts[0] ? parts[0].trim() : '';
@@ -2663,7 +2921,8 @@
                 stageEl.innerText = `المرحلة: ${cName}`;
                 secEl.innerText = `الشعبة: ${sSec}`;
                 studyEl.innerText = `نوع الدراسة: ${sStudy}`;
-                subjEl.innerText = `المادة: ${appState.schoolInfo.subject}`;
+                const selectedSubject = getSelectedReportSubject();
+                subjEl.innerText = `المادة: ${selectedSubject === 'all' ? 'جميع المواد الدراسية' : selectedSubject}`;
             }
         }
 
@@ -2687,8 +2946,11 @@
                 );
             }
 
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal, dateVal, dateVal);
+            const selectedSubject = getSelectedReportSubject();
             let savedSession = appState.savedSessions.find(sess => 
-                sess.date === dateVal && 
+                sess.date === dateVal &&
+                (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
                 (classFilterVal === 'all' || (sess.className === cName && sess.section === sSec && (sess.studyType || 'صباحي') === sStudy))
             );
 
@@ -2698,9 +2960,16 @@
             let targetStudents = [];
 
             filtered.forEach(s => {
+                const studentSession = appState.savedSessions.find(sess =>
+                    sess.date === dateVal &&
+                    (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
+                    normalizeReportValue(sess.className) === normalizeReportValue(s.class) &&
+                    normalizeReportValue(sess.section) === normalizeReportValue(s.section) &&
+                    normalizeReportValue(sess.studyType || 'صباحي') === normalizeReportValue(s.studyType || 'صباحي')
+                ) || savedSession;
                 let status = "حاضر";
-                if (savedSession && savedSession.records) {
-                    let stCode = savedSession.records[s.id] || savedSession.records[String(s.id)];
+                if (studentSession && studentSession.records) {
+                    let stCode = studentSession.records[s.id] || studentSession.records[String(s.id)];
                     if (stCode) {
                         status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
                     } else {
@@ -2786,17 +3055,28 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal, selDate, selDate);
+
             filtered = sortStudentsAlphabetically(filtered);
             
+            const selectedSubject = getSelectedReportSubject();
             let savedSession = appState.savedSessions.find(sess => 
-                sess.date === selDate && 
+                sess.date === selDate &&
+                (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
                 (classFilterVal === 'all' || (sess.className === cName && sess.section === sSec && (sess.studyType || 'صباحي') === sStudy))
             );
             
             let rows = filtered.map((s, i) => {
+                const studentSession = appState.savedSessions.find(sess =>
+                    sess.date === selDate &&
+                    (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
+                    normalizeReportValue(sess.className) === normalizeReportValue(s.class) &&
+                    normalizeReportValue(sess.section) === normalizeReportValue(s.section) &&
+                    normalizeReportValue(sess.studyType || 'صباحي') === normalizeReportValue(s.studyType || 'صباحي')
+                ) || savedSession;
                 let status = "حاضر";
-                if (savedSession && savedSession.records) {
-                    let stCode = savedSession.records[s.id] || savedSession.records[String(s.id)];
+                if (studentSession && studentSession.records) {
+                    let stCode = studentSession.records[s.id] || studentSession.records[String(s.id)];
                     if (stCode) {
                         status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
                     } else {
@@ -2847,14 +3127,21 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal, fromDate, toDate);
+
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
                 let pCount = s.attendanceCount || 0;
                 let aCount = 0;
                 let eCount = 0;
-
-                if (s.absenceLog && s.absenceLog.length > 0) {
+                const chosenSubject = getSelectedReportSubject();
+                if (chosenSubject !== 'all') {
+                    const subjectMetrics = getSubjectAttendanceMetrics(s, chosenSubject, classFilterVal, fromDate, toDate);
+                    pCount = subjectMetrics.attendanceCount;
+                    aCount = subjectMetrics.absentCount;
+                    eCount = subjectMetrics.excusedCount;
+                } else if (s.absenceLog && s.absenceLog.length > 0) {
                     s.absenceLog.forEach(log => {
                         if (log.date >= fromDate && log.date <= toDate) {
                             if (log.status === 'غائب') aCount++;
@@ -2921,6 +3208,7 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForReportSubject(filtered);
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
@@ -2997,6 +3285,7 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForReportSubject(filtered);
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
@@ -3004,13 +3293,18 @@
                 let averageCount = 0;
                 let poorCount = 0;
 
-                if (s.behaviorLog && s.behaviorLog.length > 0) {
-                    s.behaviorLog.forEach(log => {
+                const reportSubject = getSelectedReportSubject();
+                const allBehaviorLogs = Array.isArray(s.behaviorLog) ? s.behaviorLog : [];
+                const relevantBehaviorLogs = reportSubject === 'all'
+                    ? allBehaviorLogs
+                    : allBehaviorLogs.filter(log => normalizeReportValue(log && log.subject) === normalizeReportValue(reportSubject));
+                if (relevantBehaviorLogs.length > 0) {
+                    relevantBehaviorLogs.forEach(log => {
                         if (log.mark === 'مميز') excellentCount++;
                         else if (log.mark === 'متوسط') averageCount++;
                         else if (log.mark === 'سيء') poorCount++;
                     });
-                } else {
+                } else if (reportSubject === 'all' || normalizeReportValue(s.subject) === normalizeReportValue(reportSubject)) {
                     if (s.behavior === 'مميز') excellentCount = 1;
                     else if (s.behavior === 'متوسط') averageCount = 1;
                     else if (s.behavior === 'سيء') poorCount = 1;
@@ -3058,6 +3352,7 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForReportSubject(filtered);
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => `
@@ -3090,6 +3385,7 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForReportSubject(filtered);
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => `
@@ -3122,6 +3418,7 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForReportSubject(filtered);
             filtered = sortStudentsAlphabetically(filtered);
             
             let rows = filtered.map((s, i) => {
@@ -3152,13 +3449,71 @@
             document.getElementById('grades-sec-report-body').innerHTML = rows || '<tr><td colspan="8" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة لتقرير الدرجات</td></tr>';
         }
 
-        // 9. الطلبة الناجحون
+        // تقرير أعلى وأدنى الدرجات حسب المادة والمرحلة/الشعبة.
+        function updateGradesMinMaxReport() {
+            const classEl = document.getElementById('rep-minmax-class');
+            const tbody = document.getElementById('grades-minmax-report-body');
+            const summary = document.getElementById('grades-minmax-summary');
+            if (!classEl || !tbody || !summary) return;
+            const classFilterVal = classEl.value;
+            const searchKey = getSearchKeyword();
+            setPrintHeaderStageLabelUnified('rep-minmax-stage', classFilterVal);
+
+            let filtered = [...appState.students];
+            if (classFilterVal !== 'all') {
+                const [cName, sSec, sStudy] = classFilterVal.split(' - ');
+                filtered = filtered.filter(student =>
+                    normalizeReportValue(student.class) === normalizeReportValue(cName) &&
+                    normalizeReportValue(student.section) === normalizeReportValue(sSec) &&
+                    normalizeReportValue(student.studyType || 'صباحي') === normalizeReportValue(sStudy || 'صباحي')
+                );
+            }
+            filtered = filterStudentsForReportSubject(filtered);
+            if (searchKey) filtered = filtered.filter(student => String(student.name || '').toLowerCase().includes(searchKey));
+
+            const totals = filtered.map(student => ({
+                student,
+                t1: (Number(student.t1Exam) || 0) + (Number(student.t1Eval) || 0),
+                t2: (Number(student.t2Exam) || 0) + (Number(student.t2Eval) || 0),
+                saai: (Number(student.t1Exam) || 0) + (Number(student.t1Eval) || 0) + (Number(student.t2Exam) || 0) + (Number(student.t2Eval) || 0),
+                total: (Number(student.t1Exam) || 0) + (Number(student.t1Eval) || 0) + (Number(student.t2Exam) || 0) + (Number(student.t2Eval) || 0) + (Number(student.final) || 0)
+            })).sort((a, b) => b.total - a.total || String(a.student.name || '').localeCompare(String(b.student.name || ''), 'ar'));
+
+            const highest = totals[0];
+            const lowest = totals.length ? totals[totals.length - 1] : null;
+            summary.innerHTML = totals.length ? `
+                <div class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+                    <p class="text-[10px] font-bold text-emerald-700">أعلى درجة</p>
+                    <p class="text-xs font-black text-emerald-900 mt-1">${highest.student.name}</p>
+                    <p class="text-sm font-black text-emerald-700">${highest.total} / 100</p>
+                </div>
+                <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200">
+                    <p class="text-[10px] font-bold text-rose-700">أدنى درجة</p>
+                    <p class="text-xs font-black text-rose-900 mt-1">${lowest.student.name}</p>
+                    <p class="text-sm font-black text-rose-700">${lowest.total} / 100</p>
+                </div>
+            ` : `<div class="col-span-2 text-center p-3 rounded-2xl bg-slate-50 text-xs text-slate-500">لا توجد بيانات مطابقة للفلاتر</div>`;
+
+            tbody.innerHTML = totals.map((item, index) => `
+                <tr class="border-b border-slate-100 text-[10px]">
+                    <td class="p-2 text-center font-bold">${index + 1}</td>
+                    <td class="p-2 font-bold text-slate-800">${item.student.name}</td>
+                    <td class="p-2">${item.student.class || ''} - ${item.student.section || ''} (${item.student.studyType || 'صباحي'})</td>
+                    <td class="p-2">${item.student.subject || (getSelectedReportSubject() === 'all' ? 'غير محددة' : getSelectedReportSubject())}</td>
+                    <td class="p-2 text-center font-black ${index === 0 ? 'text-emerald-700' : index === totals.length - 1 ? 'text-rose-700' : 'text-slate-800'}">${item.total}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="p-3 text-center text-xs text-slate-400">لا توجد درجات مطابقة</td></tr>';
+        }
+
+        // 10. الطلبة الناجحون
         function updatePassedReport() {
+            setPrintHeaderStageLabelUnified('rep-passed-dummy', 'all');
             const searchKey = getSearchKeyword();
             let passed = appState.students.filter(s => {
                 let tot = ((s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0));
                 return tot >= 50 && (!searchKey || s.name.toLowerCase().includes(searchKey));
             });
+            passed = filterStudentsForReportSubject(passed);
             passed = sortStudentsAlphabetically(passed);
 
             let rows = passed.map((s, i) => {
@@ -3177,11 +3532,13 @@
 
         // 10. الطلبة الراسبون
         function updateFailedReport() {
+            setPrintHeaderStageLabelUnified('rep-failed-dummy', 'all');
             const searchKey = getSearchKeyword();
             let failed = appState.students.filter(s => {
                 let tot = ((s.t1Exam||0)+(s.t1Eval||0)+(s.t2Exam||0)+(s.t2Eval||0)+(s.final||0));
                 return tot < 50 && (!searchKey || s.name.toLowerCase().includes(searchKey));
             });
+            failed = filterStudentsForReportSubject(failed);
             failed = sortStudentsAlphabetically(failed);
 
             let rows = failed.map((s, i) => {
@@ -3234,9 +3591,10 @@
                     String(student.studyType || 'صباحي').trim() === String(sStudy || 'صباحي').trim()
                 );
             }
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal);
             if (searchKey) filtered = filtered.filter(student => String(student.name || '').toLowerCase().includes(searchKey));
 
-            let candidates = filtered.map(student => ({ student, metrics: getStudentAbsenceMetrics(student) }));
+            let candidates = filtered.map(student => ({ student, metrics: getSelectedReportSubject() === 'all' ? getStudentAbsenceMetrics(student) : getSubjectAttendanceMetrics(student, getSelectedReportSubject(), classFilterVal) }));
             if (selectedStudentId === 'all') candidates = candidates.filter(item => item.metrics.absentCount >= 2);
             candidates.sort((a, b) => String(a.student.name || '').localeCompare(String(b.student.name || ''), 'ar'));
 
@@ -3282,10 +3640,11 @@
                     String(student.studyType || 'صباحي').trim() === String(sStudy || 'صباحي').trim()
                 );
             }
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal);
             if (searchKey) filtered = filtered.filter(student => String(student.name || '').toLowerCase().includes(searchKey));
 
             const selectedStudent = selectedStudentId !== 'all' ? filtered[0] : null;
-            let candidates = filtered.map(student => ({ student, metrics: getStudentAbsenceMetrics(student) }));
+            let candidates = filtered.map(student => ({ student, metrics: getSelectedReportSubject() === 'all' ? getStudentAbsenceMetrics(student) : getSubjectAttendanceMetrics(student, getSelectedReportSubject(), classFilterVal) }));
             if (selectedStudentId === 'all') candidates = candidates.filter(item => item.metrics.totalLectures > 0 && item.metrics.absenceRate > 10);
             candidates.sort((a, b) => String(a.student.name || '').localeCompare(String(b.student.name || ''), 'ar'));
 
@@ -3350,6 +3709,8 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal);
+
             filtered = sortStudentsAlphabetically(filtered);
             
             if (stSelect) {
@@ -3384,7 +3745,14 @@
                 return;
             }
             
-            let logRows = (st.absenceLog || []).map((log, idx) => `
+            const selectedSubject = getSelectedReportSubject();
+            let studentLogs = (st.absenceLog || []);
+            let subjectMetrics = null;
+            if (selectedSubject !== 'all') {
+                subjectMetrics = getSubjectAttendanceMetrics(st, selectedSubject, document.getElementById('rep-att-st-class')?.value || 'all');
+                if (subjectMetrics.hasSubjectRecords) studentLogs = subjectMetrics.attendanceLogs || [];
+            }
+            let logRows = studentLogs.map((log, idx) => `
                 <tr class="border-b border-slate-100 text-[10px]">
                     <td class="p-1.5 text-center font-bold">${idx+1}</td>
                     <td class="p-1.5 text-center font-bold text-slate-700">${log.day || 'يوم المحاضرة'}</td>
@@ -3403,15 +3771,15 @@
                 </div>
                 <div class="grid grid-cols-3 gap-2 text-center text-xs font-bold mb-3">
                     <div class="p-2.5 bg-emerald-50 rounded-2xl border border-emerald-200">
-                        <span class="block text-emerald-700 text-base font-black">${st.attendanceCount || 0}</span>
+                        <span class="block text-emerald-700 text-base font-black">${subjectMetrics ? subjectMetrics.attendanceCount : (st.attendanceCount || 0)}</span>
                         <span class="text-[9px] text-slate-500">محاضرات حضور</span>
                     </div>
                     <div class="p-2.5 bg-rose-50 rounded-2xl border border-rose-200">
-                        <span class="block text-rose-700 text-base font-black">${st.absenceCount || 0}</span>
+                        <span class="block text-rose-700 text-base font-black">${subjectMetrics ? subjectMetrics.absentCount : (st.absenceCount || 0)}</span>
                         <span class="text-[9px] text-slate-500">محاضرات غياب</span>
                     </div>
                     <div class="p-2.5 bg-amber-50 rounded-2xl border border-amber-200">
-                        <span class="block text-amber-700 text-base font-black">${st.excusedCount || 0}</span>
+                        <span class="block text-amber-700 text-base font-black">${subjectMetrics ? subjectMetrics.excusedCount : (st.excusedCount || 0)}</span>
                         <span class="text-[9px] text-slate-500">إجازات رسمية</span>
                     </div>
                 </div>
@@ -3451,27 +3819,30 @@
                 filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
             }
 
+            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal);
+
             filtered = sortStudentsAlphabetically(filtered);
 
             let rows = filtered.map((s, i) => {
-                let absenceDates = (s.absenceLog || [])
-                    .filter(log => log.status === 'غائب')
-                    .map(log => `${log.day ? log.day + ' ' : ''}${log.date}`)
+                const pickedSubject = getSelectedReportSubject();
+                const metrics = pickedSubject === 'all' ? getStudentAbsenceMetrics(s) : getSubjectAttendanceMetrics(s, pickedSubject, classFilterVal);
+                let absenceDates = (metrics.absenceDates || [])
+                    .map(date => date)
                     .join(' ، ');
 
-                if (!absenceDates && (s.absenceCount || 0) === 0) {
+                if (!absenceDates && (metrics.absentCount || 0) === 0) {
                     absenceDates = '<span class="text-emerald-700 font-bold">لا يوجد غياب (ملتزم)</span>';
-                } else if (!absenceDates && (s.absenceCount || 0) > 0) {
-                    absenceDates = `<span class="text-rose-700 font-bold">${s.absenceCount} غيابات مسجلة</span>`;
+                } else if (!absenceDates && (metrics.absentCount || 0) > 0) {
+                    absenceDates = `<span class="text-rose-700 font-bold">${metrics.absentCount} غيابات مسجلة</span>`;
                 }
 
                 return `
                     <tr class="border-b border-slate-100 text-[11px]">
                         <td class="p-2 text-center font-bold">${i+1}</td>
                         <td class="p-2 font-bold text-slate-800 whitespace-nowrap">${s.name}</td>
-                        <td class="p-2 text-center font-black text-rose-700 whitespace-nowrap">${s.absenceCount || 0}</td>
-                        <td class="p-2 text-center font-black text-amber-700 whitespace-nowrap">${s.excusedCount || 0}</td>
-                        <td class="p-2 text-center font-black text-emerald-700 whitespace-nowrap">${s.attendanceCount || 0}</td>
+                        <td class="p-2 text-center font-black text-rose-700 whitespace-nowrap">${metrics.absentCount || 0}</td>
+                        <td class="p-2 text-center font-black text-amber-700 whitespace-nowrap">${metrics.excusedCount || 0}</td>
+                        <td class="p-2 text-center font-black text-emerald-700 whitespace-nowrap">${metrics.attendanceCount || 0}</td>
                         <td class="p-2 text-slate-700 leading-relaxed font-medium">${absenceDates}</td>
                     </tr>
                 `;
@@ -3987,13 +4358,16 @@
 
         // --- 3. إدارة المواد الدراسية ---
         function renderSubjectsManagement(container) {
-            let classDropdowns = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            let classDropdowns = getClassOptionsHtml();
 
-            let subjectRows = appState.subjects.map(sub => `
+            let subjectRows = appState.subjects.map(sub => {
+                const sectionText = sub.section ? `شعبة ${sub.section}` : 'الشعبة غير محددة';
+                const studyText = sub.studyType || 'الدراسة غير محددة';
+                return `
                 <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
                     <div>
                         <h5 class="font-extrabold text-xs text-slate-800">${sub.name}</h5>
-                        <span class="text-[10px] text-slate-400 font-medium">مرتبطة بـ: ${sub.class || 'عام'}</span>
+                        <span class="text-[10px] text-slate-400 font-medium">مرتبطة بـ: ${sub.class || 'غير محددة'} | ${sectionText} | ${studyText}</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <button onclick="editSubjectItem(${sub.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
@@ -4005,7 +4379,8 @@
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             container.innerHTML = `
                 <div class="space-y-3">
@@ -4017,9 +4392,9 @@
                                 <input id="inp-sub-name" type="text" placeholder="مثال: تراكيب البيانات" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
                             </div>
                             <div>
-                                <label class="block text-[9px] font-bold text-slate-600 mb-1">المرحلة المرتبطة بالمادة:</label>
+                                <label class="block text-[9px] font-bold text-slate-600 mb-1">المرحلة والشعبة ونوع الدراسة:</label>
                                 <select id="inp-sub-class" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
-                                    ${classDropdowns}
+                                    ${classDropdowns || '<option value="">أضف مرحلة وشعبة أولاً</option>'}
                                 </select>
                             </div>
                         </div>
@@ -4037,7 +4412,12 @@
             let sub = appState.subjects.find(s => s.id === subjectId);
             if (!sub) return;
 
-            let classDropdowns = appState.classes.map(c => `<option value="${c.name}" ${sub.class === c.name ? 'selected' : ''}>${c.name}</option>`).join('');
+            const matchedClass = appState.classes.find(c => c.name === sub.class && c.section === sub.section && (c.studyType || 'صباحي') === (sub.studyType || 'صباحي'))
+                || appState.classes.find(c => c.name === sub.class);
+            const selectedStage = matchedClass ? matchedClass.name : (sub.class || '');
+            const selectedSection = matchedClass ? matchedClass.section : (sub.section || '');
+            const selectedStudy = matchedClass ? (matchedClass.studyType || 'صباحي') : (sub.studyType || '');
+            let classDropdowns = getClassOptionsHtml(selectedStage, selectedSection, selectedStudy);
 
             let container = document.getElementById('modal-body');
             container.innerHTML = `
@@ -4051,9 +4431,9 @@
                         <input id="edit-sub-name" type="text" value="${sub.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة المرتبطة بالمادة:</label>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة ونوع الدراسة:</label>
                         <select id="edit-sub-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
-                            ${classDropdowns}
+                            ${classDropdowns || '<option value="">أضف مرحلة وشعبة أولاً</option>'}
                         </select>
                     </div>
                     <div class="pt-2 flex gap-2">
@@ -4069,15 +4449,22 @@
             if (!sub) return;
 
             let newName = document.getElementById('edit-sub-name').value.trim();
-            let newClass = document.getElementById('edit-sub-class').value;
+            let classVal = document.getElementById('edit-sub-class').value;
 
             if (!newName) {
                 showToast("الرجاء إدخال اسم المادة", "error");
                 return;
             }
+            if (!classVal) {
+                showToast("الرجاء إضافة مرحلة وشعبة ونوع دراسة أولاً", "error");
+                return;
+            }
 
+            const [className, sectionPart, studyPart] = classVal.split(' - ');
             sub.name = newName;
-            sub.class = newClass;
+            sub.class = (className || '').trim();
+            sub.section = (sectionPart || '').trim();
+            sub.studyType = (studyPart || 'صباحي').trim();
 
             syncStateToCloud();
             showToast("تم تعديل بيانات المادة الدراسية بنجاح!");
@@ -4139,11 +4526,27 @@
                 });
                 showToast("تم إضافة الطالب بنجاح");
             } else if (currentModalType === 'add_subject') {
-                const name = document.getElementById('inp-sub-name').value;
-                const className = document.getElementById('inp-sub-class').value;
+                const name = document.getElementById('inp-sub-name').value.trim();
+                const classVal = document.getElementById('inp-sub-class').value;
                 if (!name) { showToast("الرجاء إدخال اسم المادة", "error"); return; }
-                appState.subjects.push({ id: Date.now(), name, class: className, teacher: appState.schoolInfo.teacher });
-                showToast("تمت إضافة المادة الدراسية بنجاح");
+                if (!classVal) { showToast("أضف مرحلة وشعبة ونوع دراسة أولاً", "error"); return; }
+
+                const [className, sectionPart, studyPart] = classVal.split(' - ');
+                const section = (sectionPart || '').trim();
+                const studyType = (studyPart || 'صباحي').trim();
+                const exists = appState.subjects.some(subject =>
+                    String(subject.name || '').trim().toLocaleLowerCase() === name.toLocaleLowerCase() &&
+                    String(subject.class || '').trim() === (className || '').trim() &&
+                    String(subject.section || '').trim() === section &&
+                    String(subject.studyType || '').trim() === studyType
+                );
+                if (exists) { showToast("هذه المادة مسجلة مسبقاً لهذه المرحلة والشعبة والدراسة", "error"); return; }
+
+                appState.subjects.push({
+                    id: Date.now(), name, class: (className || '').trim(), section, studyType,
+                    teacher: appState.schoolInfo.teacher
+                });
+                showToast("تمت إضافة المادة وربطها بالمرحلة والشعبة والدراسة بنجاح");
             } else if (currentModalType === 'add_schedule_item') {
                 const day = document.getElementById('sch-day').value;
                 const subject = document.getElementById('sch-subject').value;
