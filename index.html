@@ -2118,6 +2118,7 @@
                 });
             });
             (appState.savedSessions || []).forEach(session => { if (session && session.subject) names.add(String(session.subject).trim()); });
+            (appState.schedule || []).forEach(item => { if (item && item.subject) names.add(String(item.subject).trim()); });
             names.delete('');
             return Array.from(names).sort((a, b) => a.localeCompare(b, 'ar'));
         }
@@ -2127,37 +2128,127 @@
             return select ? select.value : 'all';
         }
 
-        function reportSubjectMatchesStudent(student, subjectName) {
-            if (!subjectName || subjectName === 'all') return true;
-            const wanted = normalizeReportValue(subjectName);
-            const directSubject = normalizeReportValue(student && student.subject);
-            if (directSubject === wanted) return true;
+        function getReportClassParts(classFilterVal = 'all') {
+            if (!classFilterVal || classFilterVal === 'all') return null;
+            const parts = String(classFilterVal).split(' - ');
+            return {
+                name: (parts[0] || '').trim(),
+                section: (parts[1] || '').trim(),
+                studyType: (parts.slice(2).join(' - ') || 'صباحي').trim()
+            };
+        }
 
-            const behaviorLogs = student && Array.isArray(student.behaviorLog) ? student.behaviorLog : [];
-            if (behaviorLogs.some(log => normalizeReportValue(log && log.subject) === wanted)) return true;
-            if (directSubject) return false;
-
-            // للطلبة الذين أضيفوا قبل ربطهم بمادة مباشرة، نستعين بربط المادة بالمرحلة.
-            const subjectRecord = (appState.subjects || []).find(item => normalizeReportValue(item && item.name) === wanted);
-            return Boolean(subjectRecord && normalizeReportValue(student && student.class) === normalizeReportValue(subjectRecord.class));
+        function reportStudentMatchesClass(student, classFilterVal = 'all') {
+            const parts = getReportClassParts(classFilterVal);
+            if (!parts) return true;
+            return normalizeReportValue(student && student.class) === normalizeReportValue(parts.name) &&
+                normalizeReportValue(student && student.section) === normalizeReportValue(parts.section) &&
+                normalizeReportValue((student && student.studyType) || 'صباحي') === normalizeReportValue(parts.studyType || 'صباحي');
         }
 
         function reportClassMatchesSession(session, classFilterVal) {
-            if (!classFilterVal || classFilterVal === 'all') return true;
-            const parts = classFilterVal.split(' - ');
-            return normalizeReportValue(session.className) === normalizeReportValue(parts[0]) &&
-                normalizeReportValue(session.section) === normalizeReportValue(parts[1]) &&
-                normalizeReportValue(session.studyType || 'صباحي') === normalizeReportValue(parts[2] || 'صباحي');
+            const parts = getReportClassParts(classFilterVal);
+            if (!parts) return true;
+            return normalizeReportValue(session && session.className) === normalizeReportValue(parts.name) &&
+                normalizeReportValue(session && session.section) === normalizeReportValue(parts.section) &&
+                normalizeReportValue((session && session.studyType) || 'صباحي') === normalizeReportValue(parts.studyType || 'صباحي');
+        }
+
+        function reportSessionMatchesStudent(session, student) {
+            return normalizeReportValue(session && session.className) === normalizeReportValue(student && student.class) &&
+                normalizeReportValue(session && session.section) === normalizeReportValue(student && student.section) &&
+                normalizeReportValue((session && session.studyType) || 'صباحي') === normalizeReportValue((student && student.studyType) || 'صباحي');
+        }
+
+        // يربط الطالب بالمادة عبر قائمة المواد، وبيانات الطالب، وسجلات المتابعة القديمة.
+        // وجود مادة مرتبطة بمرحلة/شعبة يتيح عرض جميع طلبة تلك الشعبة في تقرير المادة.
+        function reportSubjectMatchesStudent(student, subjectName) {
+            if (!subjectName || subjectName === 'all') return true;
+            const wanted = normalizeReportValue(subjectName);
+            const directSubjectMatch = normalizeReportValue(student && student.subject) === wanted;
+            const behaviorLogs = student && Array.isArray(student.behaviorLog) ? student.behaviorLog : [];
+            const behaviorMatch = behaviorLogs.some(log => normalizeReportValue(log && log.subject) === wanted);
+            const linkedSubjectRecords = (appState.subjects || []).filter(item => normalizeReportValue(item && item.name) === wanted);
+            const classLinkMatch = linkedSubjectRecords.some(item => {
+                if (item.class && normalizeReportValue(item.class) !== normalizeReportValue(student && student.class)) return false;
+                if (item.section && normalizeReportValue(item.section) !== normalizeReportValue(student && student.section)) return false;
+                if (item.studyType && normalizeReportValue(item.studyType) !== normalizeReportValue((student && student.studyType) || 'صباحي')) return false;
+                return Boolean(item.class);
+            });
+            // عند وجود ربط صريح للمادة بمرحلة/شعبة، تكون القائمة المرجع الأساسي.
+            // أما سجلات المواد القديمة التي لا تحدد مرحلة، فتستخدم ربط الطالب وسجل المتابعة.
+            const hasExplicitRoster = linkedSubjectRecords.some(item => String(item.class || '').trim());
+            return hasExplicitRoster ? classLinkMatch : (directSubjectMatch || behaviorMatch);
         }
 
         function getSubjectSessions(subjectName, classFilterVal = 'all', fromDate = '', toDate = '') {
-            if (!subjectName || subjectName === 'all') return [];
             return (appState.savedSessions || []).filter(session =>
-                normalizeReportValue(session.subject) === normalizeReportValue(subjectName) &&
+                (!subjectName || subjectName === 'all' || normalizeReportValue(session && session.subject) === normalizeReportValue(subjectName)) &&
                 reportClassMatchesSession(session, classFilterVal) &&
                 (!fromDate || String(session.date || '') >= fromDate) &&
                 (!toDate || String(session.date || '') <= toDate)
             );
+        }
+
+        function getReportSessionsForStudent(student, subjectName = 'all', classFilterVal = 'all', fromDate = '', toDate = '') {
+            return getSubjectSessions(subjectName, classFilterVal, fromDate, toDate).filter(session => reportSessionMatchesStudent(session, student));
+        }
+
+        function createAttendanceMetrics(attendanceCount = 0, absentCount = 0, excusedCount = 0, attendanceLogs = [], flags = {}) {
+            const logs = Array.isArray(attendanceLogs) ? attendanceLogs : [];
+            const absenceLogs = logs.filter(log => log && log.status === 'غائب');
+            const excusedLogs = logs.filter(log => log && log.status === 'مجاز');
+            const safeAttendance = Math.max(0, Number(attendanceCount) || 0);
+            const safeAbsent = Math.max(0, Number(absentCount) || 0);
+            const safeExcused = Math.max(0, Number(excusedCount) || 0);
+            const totalLectures = safeAttendance + safeAbsent + safeExcused;
+            const seenDates = new Set();
+            const absenceDates = absenceLogs.map(log => `${log.day ? log.day + ' ' : ''}${log.date || ''}`.trim()).filter(Boolean).filter(date => {
+                if (seenDates.has(date)) return false;
+                seenDates.add(date);
+                return true;
+            });
+            return {
+                attendanceCount: safeAttendance,
+                absentCount: safeAbsent,
+                excusedCount: safeExcused,
+                totalLectures,
+                absenceRate: totalLectures ? safeAbsent / totalLectures * 100 : 0,
+                absenceLogs,
+                attendanceLogs: logs,
+                absenceDates,
+                hasSubjectRecords: Boolean(flags.hasSubjectRecords),
+                hasSessionRecords: Boolean(flags.hasSessionRecords),
+                hasApplicableSessions: Boolean(flags.hasApplicableSessions)
+            };
+        }
+
+        function getReportSessionMetrics(student, subjectName = 'all', classFilterVal = 'all', fromDate = '', toDate = '') {
+            const sessions = getReportSessionsForStudent(student, subjectName, classFilterVal, fromDate, toDate);
+            let attendanceCount = 0, absentCount = 0, excusedCount = 0;
+            let hasStudentRecord = false;
+            const logs = [];
+            sessions.forEach(session => {
+                const records = session.records || {};
+                const key = String(student && student.id);
+                if (!Object.prototype.hasOwnProperty.call(records, key) || !records[key]) return;
+                hasStudentRecord = true;
+                const code = String(records[key]).toLowerCase();
+                if (code === 'absent') {
+                    absentCount++;
+                    logs.push({ date: session.date || '', day: getDayName(session.date), status: 'غائب' });
+                } else if (code === 'excused') {
+                    excusedCount++;
+                    logs.push({ date: session.date || '', day: getDayName(session.date), status: 'مجاز' });
+                } else {
+                    attendanceCount++;
+                }
+            });
+            return createAttendanceMetrics(attendanceCount, absentCount, excusedCount, logs, {
+                hasSubjectRecords: hasStudentRecord,
+                hasSessionRecords: hasStudentRecord,
+                hasApplicableSessions: sessions.length > 0
+            });
         }
 
         function filterStudentsForReportSubject(students, subjectName = getSelectedReportSubject()) {
@@ -2169,49 +2260,58 @@
             if (!subjectName || subjectName === 'all') return students;
             const sessions = getSubjectSessions(subjectName, classFilterVal, fromDate, toDate);
             const recordedIds = new Set();
-            let hasSessionRoster = false;
+            sessions.forEach(session => {
+                Object.keys(session.records || {}).forEach(id => recordedIds.add(String(id)));
+            });
+            return students.filter(student => recordedIds.has(String(student.id)) || reportSubjectMatchesStudent(student, subjectName));
+        }
+
+        function getStudentStatusForReportDate(student, dateValue, subjectName = 'all', classFilterVal = 'all') {
+            const sessions = getReportSessionsForStudent(student, subjectName, classFilterVal, dateValue, dateValue);
+            const statuses = [];
             sessions.forEach(session => {
                 const records = session.records || {};
-                const ids = Object.keys(records);
-                if (ids.length) hasSessionRoster = true;
-                ids.forEach(id => recordedIds.add(String(id)));
+                const key = String(student && student.id);
+                if (!Object.prototype.hasOwnProperty.call(records, key) || !records[key]) return;
+                const code = String(records[key]).toLowerCase();
+                statuses.push(code === 'absent' ? 'غائب' : code === 'excused' ? 'مجاز' : 'حاضر');
             });
-            if (hasSessionRoster) return students.filter(student => recordedIds.has(String(student.id)));
-            return filterStudentsForReportSubject(students, subjectName);
+            if (statuses.length) {
+                if (statuses.includes('غائب')) return 'غائب';
+                if (statuses.includes('مجاز')) return 'مجاز';
+                return 'حاضر';
+            }
+            if (sessions.length) return 'غير مسجل';
+
+            const studentSubjectMatches = !subjectName || subjectName === 'all' ||
+                normalizeReportValue(student && student.subject) === normalizeReportValue(subjectName);
+            if (studentSubjectMatches) {
+                const log = (student && Array.isArray(student.absenceLog) ? student.absenceLog : []).find(item => item && item.date === dateValue);
+                if (log) return log.status || 'غير مسجل';
+            }
+            return 'غير مسجل';
+        }
+
+        function getLegacyStudentAttendanceMetrics(student, fromDate = '', toDate = '') {
+            const allLogs = Array.isArray(student && student.absenceLog) ? student.absenceLog.filter(Boolean) : [];
+            const logs = allLogs.filter(log => (!fromDate || String(log.date || '') >= fromDate) && (!toDate || String(log.date || '') <= toDate));
+            const absenceLogs = logs.filter(log => log.status === 'غائب');
+            const excusedLogs = logs.filter(log => log.status === 'مجاز');
+            const isPeriodReport = Boolean(fromDate || toDate);
+            const absentCount = isPeriodReport ? absenceLogs.length : Math.max(Number(student && student.absenceCount) || 0, absenceLogs.length);
+            const excusedCount = isPeriodReport ? excusedLogs.length : Math.max(Number(student && student.excusedCount) || 0, excusedLogs.length);
+            const attendanceCount = isPeriodReport ? 0 : (Number(student && student.attendanceCount) || 0);
+            return createAttendanceMetrics(attendanceCount, absentCount, excusedCount, [...absenceLogs, ...excusedLogs], {});
         }
 
         function getSubjectAttendanceMetrics(student, subjectName, classFilterVal = 'all', fromDate = '', toDate = '') {
-            const sessions = getSubjectSessions(subjectName, classFilterVal, fromDate, toDate);
-            let attendanceCount = 0, absentCount = 0, excusedCount = 0;
-            let hasStudentRecord = false;
-            const absenceLogs = [];
-            sessions.forEach(session => {
-                const records = session.records || {};
-                const code = records[student.id] || records[String(student.id)];
-                if (!code) return;
-                hasStudentRecord = true;
-                if (code === 'absent') {
-                    absentCount++;
-                    absenceLogs.push({ date: session.date, day: getDayName(session.date), status: 'غائب' });
-                } else if (code === 'excused') {
-                    excusedCount++;
-                    absenceLogs.push({ date: session.date, day: getDayName(session.date), status: 'مجاز' });
-                } else {
-                    attendanceCount++;
-                }
-            });
-            if (hasStudentRecord) {
-                const totalLectures = attendanceCount + absentCount + excusedCount;
-                return {
-                    attendanceCount, absentCount, excusedCount, totalLectures,
-                    absenceRate: totalLectures ? absentCount / totalLectures * 100 : 0,
-                    absenceLogs: absenceLogs.filter(log => log.status === 'غائب'),
-                    attendanceLogs: absenceLogs,
-                    hasSubjectRecords: true,
-                    absenceDates: absenceLogs.filter(log => log.status === 'غائب').map(log => `${log.day} ${log.date}`)
-                };
+            const sessionMetrics = getReportSessionMetrics(student, subjectName, classFilterVal, fromDate, toDate);
+            if (sessionMetrics.hasApplicableSessions) return sessionMetrics;
+            // إذا لم توجد جلسات للمادة، لا نخلط أرقام مادة أخرى بها. نستخدم السجل القديم فقط عند ارتباط الطالب المباشر بالمادة.
+            if (normalizeReportValue(student && student.subject) === normalizeReportValue(subjectName)) {
+                return getLegacyStudentAttendanceMetrics(student, fromDate, toDate);
             }
-            return getStudentAbsenceMetrics(student);
+            return createAttendanceMetrics(0, 0, 0, [], { hasSubjectRecords: false, hasSessionRecords: false, hasApplicableSessions: false });
         }
 
         function handleReportSubjectFilterChange() {
@@ -2931,104 +3031,44 @@
             const dateVal = document.getElementById('rep-abs-date').value;
             const classFilterVal = document.getElementById('rep-abs-class').value;
             const searchKey = getSearchKeyword();
+            const selectedSubject = getSelectedReportSubject();
 
             setPrintHeaderStageLabelUnified('rep-abs-stage', classFilterVal);
-
             let filtered = [...appState.students];
-            let cName = "", sSec = "", sStudy = "";
+            if (classFilterVal !== 'all') filtered = filtered.filter(student => reportStudentMatchesClass(student, classFilterVal));
+            filtered = filterStudentsForAttendanceSubject(filtered, selectedSubject, classFilterVal, dateVal, dateVal);
 
-            if (classFilterVal !== 'all') {
-                [cName, sSec, sStudy] = classFilterVal.split(' - ');
-                filtered = filtered.filter(s => 
-                    s.class.trim() === cName.trim() && 
-                    s.section.trim() === sSec.trim() && 
-                    (s.studyType || 'صباحي').trim() === sStudy.trim()
-                );
-            }
-
-            filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal, dateVal, dateVal);
-            const selectedSubject = getSelectedReportSubject();
-            let savedSession = appState.savedSessions.find(sess => 
-                sess.date === dateVal &&
-                (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
-                (classFilterVal === 'all' || (sess.className === cName && sess.section === sSec && (sess.studyType || 'صباحي') === sStudy))
-            );
-
-            let presentCount = 0;
-            let absentCount = 0;
-            let excusedCount = 0;
+            let presentCount = 0, absentCount = 0, excusedCount = 0;
             let targetStudents = [];
-
-            filtered.forEach(s => {
-                const studentSession = appState.savedSessions.find(sess =>
-                    sess.date === dateVal &&
-                    (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
-                    normalizeReportValue(sess.className) === normalizeReportValue(s.class) &&
-                    normalizeReportValue(sess.section) === normalizeReportValue(s.section) &&
-                    normalizeReportValue(sess.studyType || 'صباحي') === normalizeReportValue(s.studyType || 'صباحي')
-                ) || savedSession;
-                let status = "حاضر";
-                if (studentSession && studentSession.records) {
-                    let stCode = studentSession.records[s.id] || studentSession.records[String(s.id)];
-                    if (stCode) {
-                        status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
-                    } else {
-                        let matchLog = (s.absenceLog || []).find(l => l.date === dateVal);
-                        if (matchLog) status = matchLog.status;
-                    }
-                } else {
-                    let matchLog = (s.absenceLog || []).find(l => l.date === dateVal);
-                    if (matchLog) status = matchLog.status;
-                }
-
-                if (status === 'حاضر') {
-                    presentCount++;
-                } else if (status === 'غائب') {
+            filtered.forEach(student => {
+                const status = getStudentStatusForReportDate(student, dateVal, selectedSubject, classFilterVal);
+                if (status === 'حاضر') presentCount++;
+                else if (status === 'غائب') {
                     absentCount++;
-                    targetStudents.push({ ...s, currentStatus: 'غائب' });
+                    targetStudents.push({ ...student, currentStatus: 'غائب' });
                 } else if (status === 'مجاز') {
                     excusedCount++;
-                    targetStudents.push({ ...s, currentStatus: 'مجاز' });
+                    targetStudents.push({ ...student, currentStatus: 'مجاز' });
                 }
             });
 
             const statsBox = document.getElementById('absence-stats-box');
-            if (statsBox) {
-                statsBox.innerHTML = `
-                    <div class="p-2.5 bg-emerald-50 rounded-2xl border border-emerald-200">
-                        <span class="block text-emerald-700 text-lg font-black">${presentCount}</span>
-                        <span class="text-[10px] text-slate-500 font-bold">عدد الحضور</span>
-                    </div>
-                    <div class="p-2.5 bg-rose-50 rounded-2xl border border-rose-200">
-                        <span class="block text-rose-700 text-lg font-black">${absentCount}</span>
-                        <span class="text-[10px] text-slate-500 font-bold">عدد الغياب</span>
-                    </div>
-                    <div class="p-2.5 bg-amber-50 rounded-2xl border border-amber-200">
-                        <span class="block text-amber-700 text-lg font-black">${excusedCount}</span>
-                        <span class="text-[10px] text-slate-500 font-bold">عدد المجازين</span>
-                    </div>
-                `;
-            }
+            if (statsBox) statsBox.innerHTML = `
+                <div class="p-2.5 bg-emerald-50 rounded-2xl border border-emerald-200"><span class="block text-emerald-700 text-lg font-black">${presentCount}</span><span class="text-[10px] text-slate-500 font-bold">عدد الحضور</span></div>
+                <div class="p-2.5 bg-rose-50 rounded-2xl border border-rose-200"><span class="block text-rose-700 text-lg font-black">${absentCount}</span><span class="text-[10px] text-slate-500 font-bold">عدد الغياب</span></div>
+                <div class="p-2.5 bg-amber-50 rounded-2xl border border-amber-200"><span class="block text-amber-700 text-lg font-black">${excusedCount}</span><span class="text-[10px] text-slate-500 font-bold">عدد المجازين</span></div>
+            `;
 
-            if (searchKey) {
-                targetStudents = targetStudents.filter(s => s.name.toLowerCase().includes(searchKey));
-            }
-
+            if (searchKey) targetStudents = targetStudents.filter(student => String(student.name || '').toLowerCase().includes(searchKey));
             targetStudents = sortStudentsAlphabetically(targetStudents);
-
-            let rows = targetStudents.map((s, i) => `
+            const rows = targetStudents.map((student, index) => `
                 <tr class="border-b border-slate-100 text-[11px]">
-                    <td class="p-2 font-bold text-center">${i+1}</td>
-                    <td class="p-2 font-bold text-slate-800">${s.name}</td>
-                    <td class="p-2 text-center">
-                        <span class="px-3 py-0.5 rounded-full text-[10px] font-black ${s.currentStatus === 'غائب' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}">
-                            ${s.currentStatus}
-                        </span>
-                    </td>
+                    <td class="p-2 font-bold text-center">${index + 1}</td>
+                    <td class="p-2 font-bold text-slate-800">${student.name}</td>
+                    <td class="p-2 text-center"><span class="px-3 py-0.5 rounded-full text-[10px] font-black ${student.currentStatus === 'غائب' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}">${student.currentStatus}</span></td>
                 </tr>
             `).join('');
-
-            document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين في هذا التاريخ</td></tr>';
+            document.getElementById('absence-list-report-body').innerHTML = rows || '<tr><td colspan="3" class="p-4 text-center text-xs font-bold text-emerald-600">لا يوجد أي طلاب غائبين أو مجازين مسجلين في هذا التاريخ</td></tr>';
         }
 
         // 2. تقرير حضور يومي
@@ -3060,35 +3100,9 @@
             filtered = sortStudentsAlphabetically(filtered);
             
             const selectedSubject = getSelectedReportSubject();
-            let savedSession = appState.savedSessions.find(sess => 
-                sess.date === selDate &&
-                (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
-                (classFilterVal === 'all' || (sess.className === cName && sess.section === sSec && (sess.studyType || 'صباحي') === sStudy))
-            );
-            
             let rows = filtered.map((s, i) => {
-                const studentSession = appState.savedSessions.find(sess =>
-                    sess.date === selDate &&
-                    (selectedSubject === 'all' || normalizeReportValue(sess.subject) === normalizeReportValue(selectedSubject)) &&
-                    normalizeReportValue(sess.className) === normalizeReportValue(s.class) &&
-                    normalizeReportValue(sess.section) === normalizeReportValue(s.section) &&
-                    normalizeReportValue(sess.studyType || 'صباحي') === normalizeReportValue(s.studyType || 'صباحي')
-                ) || savedSession;
-                let status = "حاضر";
-                if (studentSession && studentSession.records) {
-                    let stCode = studentSession.records[s.id] || studentSession.records[String(s.id)];
-                    if (stCode) {
-                        status = stCode === 'absent' ? 'غائب' : stCode === 'excused' ? 'مجاز' : 'حاضر';
-                    } else {
-                        let matchLog = (s.absenceLog || []).find(l => l.date === selDate);
-                        if (matchLog) status = matchLog.status;
-                    }
-                } else {
-                    let matchLog = (s.absenceLog || []).find(l => l.date === selDate);
-                    if (matchLog) status = matchLog.status;
-                }
-                
-                let statusBadge = status === 'حاضر' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : status === 'غائب' ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-amber-100 text-amber-800 border-amber-300';
+                const status = getStudentStatusForReportDate(s, selDate, selectedSubject, classFilterVal);
+                let statusBadge = status === 'حاضر' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : status === 'غائب' ? 'bg-rose-100 text-rose-800 border-rose-300' : status === 'مجاز' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-600 border-slate-300';
                 
                 return `
                     <tr class="border-b border-slate-100 text-[11px]">
@@ -3114,60 +3128,39 @@
             setPrintHeaderStageLabelUnified('rep-month-stage', classFilterVal);
 
             let filtered = [...appState.students];
-            if (classFilterVal !== 'all') {
-                const [cName, sSec, sStudy] = classFilterVal.split(' - ');
-                filtered = filtered.filter(s => 
-                    s.class.trim() === cName.trim() && 
-                    s.section.trim() === sSec.trim() && 
-                    (s.studyType || 'صباحي').trim() === sStudy.trim()
-                );
-            }
-
-            if (searchKey) {
-                filtered = filtered.filter(s => s.name.toLowerCase().includes(searchKey));
-            }
-
+            if (classFilterVal !== 'all') filtered = filtered.filter(student => reportStudentMatchesClass(student, classFilterVal));
+            if (searchKey) filtered = filtered.filter(student => String(student.name || '').toLowerCase().includes(searchKey));
             filtered = filterStudentsForAttendanceSubject(filtered, getSelectedReportSubject(), classFilterVal, fromDate, toDate);
-
             filtered = sortStudentsAlphabetically(filtered);
 
-            let rows = filtered.map((s, i) => {
-                let pCount = s.attendanceCount || 0;
-                let aCount = 0;
-                let eCount = 0;
-                const chosenSubject = getSelectedReportSubject();
-                if (chosenSubject !== 'all') {
-                    const subjectMetrics = getSubjectAttendanceMetrics(s, chosenSubject, classFilterVal, fromDate, toDate);
-                    pCount = subjectMetrics.attendanceCount;
-                    aCount = subjectMetrics.absentCount;
-                    eCount = subjectMetrics.excusedCount;
-                } else if (s.absenceLog && s.absenceLog.length > 0) {
-                    s.absenceLog.forEach(log => {
-                        if (log.date >= fromDate && log.date <= toDate) {
-                            if (log.status === 'غائب') aCount++;
-                            else if (log.status === 'مجاز') eCount++;
-                        }
-                    });
+            const selectedSubject = getSelectedReportSubject();
+            const rows = filtered.map((student, index) => {
+                let metrics;
+                const sessionMetrics = getReportSessionMetrics(student, selectedSubject, classFilterVal, fromDate, toDate);
+                if (sessionMetrics.hasApplicableSessions) {
+                    metrics = sessionMetrics;
+                } else if ((appState.savedSessions || []).length === 0) {
+                    metrics = getLegacyStudentAttendanceMetrics(student, fromDate, toDate);
+                } else if (selectedSubject !== 'all' && normalizeReportValue(student.subject) === normalizeReportValue(selectedSubject)) {
+                    metrics = getLegacyStudentAttendanceMetrics(student, fromDate, toDate);
                 } else {
-                    aCount = s.absenceCount || 0;
-                    eCount = s.excusedCount || 0;
+                    // لا تُعرض الأعداد التراكمية وكأنها تخص الفترة المحددة.
+                    const logs = (Array.isArray(student.absenceLog) ? student.absenceLog : []).filter(log => log &&
+                        (!fromDate || String(log.date || '') >= fromDate) && (!toDate || String(log.date || '') <= toDate));
+                    metrics = createAttendanceMetrics(0, logs.filter(log => log.status === 'غائب').length,
+                        logs.filter(log => log.status === 'مجاز').length,
+                        logs.filter(log => log.status === 'غائب' || log.status === 'مجاز'), {});
                 }
-
-                let total = pCount + aCount + eCount || 1;
-                let rate = Math.round((pCount / total) * 100);
-
+                const total = metrics.totalLectures || 0;
+                const rate = total ? Math.round((metrics.attendanceCount / total) * 100) : 0;
                 return `
                     <tr class="border-b border-slate-100 text-[11px]">
-                        <td class="p-2 font-bold text-center">${i+1}</td>
-                        <td class="p-2 font-bold text-slate-800">${s.name}</td>
-                        <td class="p-2 text-center font-black text-emerald-600">${pCount}</td>
-                        <td class="p-2 text-center font-black text-rose-600">${aCount}</td>
-                        <td class="p-2 text-center font-black text-amber-600">${eCount}</td>
-                        <td class="p-2 text-center">
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${rate >= 85 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-                                ${rate}%
-                            </span>
-                        </td>
+                        <td class="p-2 font-bold text-center">${index + 1}</td>
+                        <td class="p-2 font-bold text-slate-800">${student.name}</td>
+                        <td class="p-2 text-center font-black text-emerald-600">${metrics.attendanceCount}</td>
+                        <td class="p-2 text-center font-black text-rose-600">${metrics.absentCount}</td>
+                        <td class="p-2 text-center font-black text-amber-600">${metrics.excusedCount}</td>
+                        <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${rate >= 85 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${rate}%</span></td>
                     </tr>
                 `;
             }).join('');
@@ -3498,7 +3491,7 @@
                 <tr class="border-b border-slate-100 text-[10px]">
                     <td class="p-2 text-center font-bold">${index + 1}</td>
                     <td class="p-2 font-bold text-slate-800">${item.student.name}</td>
-                    <td class="p-2">${item.student.class || ''} - ${item.student.section || ''} (${item.student.studyType || 'صباحي'})</td>
+                    <td class="p-2">${item.student.class || ''} - ${item.student.section || ''}</td>
                     <td class="p-2">${item.student.subject || (getSelectedReportSubject() === 'all' ? 'غير محددة' : getSelectedReportSubject())}</td>
                     <td class="p-2 text-center font-black ${index === 0 ? 'text-emerald-700' : index === totals.length - 1 ? 'text-rose-700' : 'text-slate-800'}">${item.total}</td>
                 </tr>
@@ -3555,18 +3548,48 @@
             document.getElementById('grades-failed-report-body').innerHTML = rows || '<tr><td colspan="4" class="p-3 text-center text-xs text-slate-400">لا يوجد طلبة راسبين</td></tr>';
         }
 
-        // إحصائيات حضور موحدة تعتمد على سجل الغياب عند توفره، وعلى العدادات في غير ذلك
-        function getStudentAbsenceMetrics(student) {
-            const logs = Array.isArray(student.absenceLog) ? student.absenceLog : [];
-            const absentLogs = logs.filter(log => log && log.status === 'غائب');
-            const excusedLogs = logs.filter(log => log && log.status === 'مجاز');
-            const absentCount = Math.max(Number(student.absenceCount) || 0, absentLogs.length);
-            const excusedCount = Math.max(Number(student.excusedCount) || 0, excusedLogs.length);
-            const attendanceCount = Math.max(Number(student.attendanceCount) || 0, 0);
-            const totalLectures = attendanceCount + absentCount + excusedCount;
-            const absenceRate = totalLectures > 0 ? (absentCount / totalLectures) * 100 : 0;
-            const absenceDates = absentLogs.map(log => `${log.day ? log.day + ' ' : ''}${log.date || ''}`.trim()).filter(Boolean);
-            return { absentCount, excusedCount, attendanceCount, totalLectures, absenceRate, absenceLogs: absentLogs, absenceDates };
+        // إحصائيات التقارير: الأولوية لجلسات الحضور المحفوظة، مع دعم سجلات الطلبة القديمة.
+        function getStudentAbsenceMetrics(student, subjectName = 'all', classFilterVal = 'all', fromDate = '', toDate = '') {
+            const pickedSubject = subjectName || 'all';
+            const sessionMetrics = getReportSessionMetrics(student, pickedSubject, classFilterVal, fromDate, toDate);
+
+            if (pickedSubject !== 'all') {
+                if (sessionMetrics.hasApplicableSessions) return sessionMetrics;
+                if (normalizeReportValue(student && student.subject) === normalizeReportValue(pickedSubject)) {
+                    return getLegacyStudentAttendanceMetrics(student, fromDate, toDate);
+                }
+                return sessionMetrics;
+            }
+
+            const legacy = getLegacyStudentAttendanceMetrics(student, fromDate, toDate);
+            if (fromDate || toDate) {
+                if (sessionMetrics.hasApplicableSessions) {
+                    // سجلات الغياب القديمة تُدمج مع الجلسات دون تكرار نفس الحالة في التاريخ نفسه.
+                    const mergedLogs = [...sessionMetrics.attendanceLogs];
+                    legacy.attendanceLogs.forEach(log => {
+                        if (!mergedLogs.some(existing => existing.date === log.date && existing.status === log.status)) mergedLogs.push(log);
+                    });
+                    return createAttendanceMetrics(sessionMetrics.attendanceCount,
+                        Math.max(sessionMetrics.absentCount, mergedLogs.filter(log => log.status === 'غائب').length),
+                        Math.max(sessionMetrics.excusedCount, mergedLogs.filter(log => log.status === 'مجاز').length),
+                        mergedLogs, { hasSessionRecords: sessionMetrics.hasSessionRecords, hasApplicableSessions: true });
+                }
+                if ((appState.savedSessions || []).length === 0) return legacy;
+                return createAttendanceMetrics(0, legacy.absentCount, legacy.excusedCount, legacy.attendanceLogs, {});
+            }
+
+            if (!sessionMetrics.hasApplicableSessions && !sessionMetrics.hasSessionRecords) return legacy;
+            const mergedLogs = [...sessionMetrics.attendanceLogs];
+            legacy.attendanceLogs.forEach(log => {
+                if (!mergedLogs.some(existing => existing.date === log.date && existing.status === log.status)) mergedLogs.push(log);
+            });
+            return createAttendanceMetrics(
+                Math.max(legacy.attendanceCount, sessionMetrics.attendanceCount),
+                Math.max(legacy.absentCount, sessionMetrics.absentCount, mergedLogs.filter(log => log.status === 'غائب').length),
+                Math.max(legacy.excusedCount, sessionMetrics.excusedCount, mergedLogs.filter(log => log.status === 'مجاز').length),
+                mergedLogs,
+                { hasSessionRecords: sessionMetrics.hasSessionRecords, hasApplicableSessions: sessionMetrics.hasApplicableSessions }
+            );
         }
 
         // 11. تقرير الغياب المتكرر: يدعم الكشف الجماعي وتفاصيل طالب بعينه
@@ -3608,7 +3631,7 @@
                 const frequent = metrics.absentCount >= 2;
                 return `<tr class="border-b border-orange-100 text-[10px] ${frequent ? 'bg-orange-50/60' : ''}">
                     <td class="p-2 text-center font-bold">${index + 1}</td>
-                    <td class="p-2 font-bold text-slate-900">${student.name}<div class="text-[9px] font-medium text-slate-500">${student.class} - شعبة ${student.section} (${student.studyType || 'صباحي'})</div></td>
+                    <td class="p-2 font-bold text-slate-900">${student.name}<div class="text-[9px] font-medium text-slate-500">${student.class} - شعبة ${student.section}</div></td>
                     <td class="p-2 text-center font-black ${frequent ? 'text-rose-700' : 'text-slate-700'}">${metrics.absentCount}</td>
                     <td class="p-2 text-center font-black">${metrics.absenceRate.toFixed(1)}%</td>
                     <td class="p-2 leading-relaxed">${dateList}</td>
@@ -3657,7 +3680,7 @@
                 const exceeded = metrics.totalLectures > 0 && metrics.absenceRate > 10;
                 return `<tr class="border-b border-rose-100 text-[11px] ${exceeded ? 'bg-rose-50/60' : ''}">
                     <td class="p-2 text-center font-bold">${index + 1}</td>
-                    <td class="p-2 font-bold text-slate-900">${student.name}<div class="text-[9px] font-medium text-slate-500">${student.class} - شعبة ${student.section} (${student.studyType || 'صباحي'})</div></td>
+                    <td class="p-2 font-bold text-slate-900">${student.name}<div class="text-[9px] font-medium text-slate-500">${student.class} - شعبة ${student.section}</div></td>
                     <td class="p-2 text-center font-black text-rose-700">${metrics.absentCount} غيابات</td>
                     <td class="p-2 text-center font-black ${exceeded ? 'text-rose-800' : 'text-emerald-700'}">${metrics.absenceRate.toFixed(1)}%<div class="text-[9px]">${exceeded ? 'متجاوز الحد' : 'ضمن الحد المسموح'}</div></td>
                 </tr>`;
@@ -3746,12 +3769,11 @@
             }
             
             const selectedSubject = getSelectedReportSubject();
-            let studentLogs = (st.absenceLog || []);
-            let subjectMetrics = null;
-            if (selectedSubject !== 'all') {
-                subjectMetrics = getSubjectAttendanceMetrics(st, selectedSubject, document.getElementById('rep-att-st-class')?.value || 'all');
-                if (subjectMetrics.hasSubjectRecords) studentLogs = subjectMetrics.attendanceLogs || [];
-            }
+            const studentClassFilter = document.getElementById('rep-att-st-class')?.value || 'all';
+            const subjectMetrics = selectedSubject === 'all'
+                ? getStudentAbsenceMetrics(st, 'all', studentClassFilter)
+                : getSubjectAttendanceMetrics(st, selectedSubject, studentClassFilter);
+            const studentLogs = subjectMetrics.attendanceLogs || [];
             let logRows = studentLogs.map((log, idx) => `
                 <tr class="border-b border-slate-100 text-[10px]">
                     <td class="p-1.5 text-center font-bold">${idx+1}</td>
@@ -3771,15 +3793,15 @@
                 </div>
                 <div class="grid grid-cols-3 gap-2 text-center text-xs font-bold mb-3">
                     <div class="p-2.5 bg-emerald-50 rounded-2xl border border-emerald-200">
-                        <span class="block text-emerald-700 text-base font-black">${subjectMetrics ? subjectMetrics.attendanceCount : (st.attendanceCount || 0)}</span>
+                        <span class="block text-emerald-700 text-base font-black">${subjectMetrics.attendanceCount || 0}</span>
                         <span class="text-[9px] text-slate-500">محاضرات حضور</span>
                     </div>
                     <div class="p-2.5 bg-rose-50 rounded-2xl border border-rose-200">
-                        <span class="block text-rose-700 text-base font-black">${subjectMetrics ? subjectMetrics.absentCount : (st.absenceCount || 0)}</span>
+                        <span class="block text-rose-700 text-base font-black">${subjectMetrics.absentCount || 0}</span>
                         <span class="text-[9px] text-slate-500">محاضرات غياب</span>
                     </div>
                     <div class="p-2.5 bg-amber-50 rounded-2xl border border-amber-200">
-                        <span class="block text-amber-700 text-base font-black">${subjectMetrics ? subjectMetrics.excusedCount : (st.excusedCount || 0)}</span>
+                        <span class="block text-amber-700 text-base font-black">${subjectMetrics.excusedCount || 0}</span>
                         <span class="text-[9px] text-slate-500">إجازات رسمية</span>
                     </div>
                 </div>
@@ -3825,7 +3847,7 @@
 
             let rows = filtered.map((s, i) => {
                 const pickedSubject = getSelectedReportSubject();
-                const metrics = pickedSubject === 'all' ? getStudentAbsenceMetrics(s) : getSubjectAttendanceMetrics(s, pickedSubject, classFilterVal);
+                const metrics = getStudentAbsenceMetrics(s, pickedSubject, classFilterVal);
                 let absenceDates = (metrics.absenceDates || [])
                     .map(date => date)
                     .join(' ، ');
