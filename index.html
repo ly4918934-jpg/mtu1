@@ -520,6 +520,7 @@
                     behaviorLog: [{ mark: "متوسط", stage: "المرحلة الثالثة", section: "أ", studyType: "مسائي", subject: "البرمجيات", date: "2026-09-12" }]
                 }
             ],
+            subjectCatalog: [],
             subjects: [
                 { id: 1, name: "برمجة الحاسوب I", class: "المرحلة الأولى", teacher: "أ.د. حيدر الموسوي" },
                 { id: 2, name: "تراكيب البيانات", class: "المرحلة الثانية", teacher: "أ.د. حيدر الموسوي" },
@@ -588,18 +589,303 @@
             appState.classes = Array.isArray(appState.classes) ? appState.classes : [];
             appState.students = Array.isArray(appState.students) ? appState.students : [];
             appState.subjects = Array.isArray(appState.subjects) ? appState.subjects : [];
-            // الحقول الجديدة تحفظ ارتباط المادة بالمرحلة والشعبة ونوع الدراسة؛ المواد القديمة تبقى محفوظة كما هي.
-            appState.subjects.forEach(subject => {
-                if (!subject || typeof subject !== 'object') return;
-                if (subject.section === undefined || subject.section === null) subject.section = '';
-                if (subject.studyType === undefined || subject.studyType === null) subject.studyType = '';
+            // توحيد ربط المواد القديمة: إذا كانت المادة مرتبطة بالمرحلة فقط، تُربط بكل شعبة/دراسة موجودة لتلك المرحلة، دون تكرار ربط موجود مسبقاً.
+            const sourceSubjects = appState.subjects.filter(subject => subject && typeof subject === 'object');
+            const exactSubjectKeys = new Set(sourceSubjects.filter(subject => String(subject.section || '').trim()).map(subject =>
+                getSubjectAssignmentKey(subject.name, subject.class, subject.section, subject.studyType || 'صباحي')
+            ));
+            const normalizedSubjects = [];
+            const normalizedSubjectKeys = new Set();
+            sourceSubjects.forEach(subject => {
+                subject.name = String(subject.name || '').trim();
+                subject.class = String(subject.class || '').trim();
+                subject.section = String(subject.section || '').trim();
+                subject.studyType = String(subject.studyType || '').trim();
+
+                if (subject.section) {
+                    const matchingClass = appState.classes.find(cls =>
+                        normalizeAcademicText(cls.name) === normalizeAcademicText(subject.class) &&
+                        normalizeAcademicText(cls.section) === normalizeAcademicText(subject.section) &&
+                        normalizeAcademicText(cls.studyType || 'صباحي') === normalizeAcademicText(subject.studyType || 'صباحي')
+                    );
+                    if (matchingClass) {
+                        subject.class = matchingClass.name;
+                        subject.section = String(matchingClass.section || '').trim();
+                        subject.studyType = String(matchingClass.studyType || 'صباحي').trim();
+                    }
+                    const key = getSubjectAssignmentKey(subject.name, subject.class, subject.section, subject.studyType || 'صباحي');
+                    if (!normalizedSubjectKeys.has(key)) {
+                        normalizedSubjectKeys.add(key);
+                        normalizedSubjects.push(subject);
+                    }
+                    return;
+                }
+
+                const matchingClasses = subject.class
+                    ? appState.classes.filter(cls => normalizeAcademicText(cls.name) === normalizeAcademicText(subject.class))
+                    : [];
+                if (!matchingClasses.length) {
+                    const key = getSubjectAssignmentKey(subject.name, subject.class, subject.section, subject.studyType || 'صباحي');
+                    if (!normalizedSubjectKeys.has(key)) {
+                        normalizedSubjectKeys.add(key);
+                        normalizedSubjects.push(subject);
+                    }
+                    return;
+                }
+
+                matchingClasses.forEach((cls, index) => {
+                    const linked = { ...subject, class: cls.name, section: String(cls.section || '').trim(), studyType: String(cls.studyType || 'صباحي').trim() };
+                    const key = getSubjectAssignmentKey(linked.name, linked.class, linked.section, linked.studyType);
+                    // لا تُنشئ نسخاً من ربط موجود مسبقاً لهذه الشعبة.
+                    if (exactSubjectKeys.has(key) || normalizedSubjectKeys.has(key)) return;
+                    if (index > 0 || matchingClasses.length > 1) linked.id = Date.now() + Math.random();
+                    normalizedSubjectKeys.add(key);
+                    normalizedSubjects.push(linked);
+                });
             });
+            appState.subjects = normalizedSubjects;
             appState.schedule = Array.isArray(appState.schedule) ? appState.schedule : [];
             appState.savedSessions = Array.isArray(appState.savedSessions) ? appState.savedSessions : [];
             appState.students.forEach(student => {
                 if (student.id !== undefined && student.id !== null) student.id = typeof student.id === 'string' && student.id.trim() !== '' ? (Number.isFinite(Number(student.id)) ? Number(student.id) : student.id) : student.id;
                 if (!Array.isArray(student.absenceLog)) student.absenceLog = [];
             });
+
+            // ترحيل روابط المواد القديمة مرة واحدة فقط؛ حتى لا تعود مادة أزيل ربطها يدوياً بسبب وجود سجلات تاريخية.
+            const shouldMigrateLegacySubjectLinks = Number(appState.subjectAssignmentSchemaVersion || 0) < 2;
+            const ensureSubjectAssignment = (subjectName, className, section, studyType) => {
+                const cleanName = String(subjectName || '').trim();
+                if (!cleanName || !className || section === undefined || section === null) return;
+                const classRecord = appState.classes.find(cls =>
+                    normalizeAcademicText(cls.name) === normalizeAcademicText(className) &&
+                    normalizeAcademicText(cls.section) === normalizeAcademicText(section) &&
+                    normalizeAcademicText(cls.studyType || 'صباحي') === normalizeAcademicText(studyType || 'صباحي')
+                );
+                if (!classRecord) return;
+                const exists = appState.subjects.some(subject =>
+                    getSubjectAssignmentKey(subject.name, subject.class, subject.section, subject.studyType || 'صباحي') ===
+                    getSubjectAssignmentKey(cleanName, classRecord.name, classRecord.section, classRecord.studyType || 'صباحي')
+                );
+                if (!exists) appState.subjects.push({
+                    id: Date.now() + Math.random(), name: cleanName, class: classRecord.name,
+                    section: String(classRecord.section || '').trim(), studyType: String(classRecord.studyType || 'صباحي').trim(),
+                    teacher: appState.schoolInfo.teacher || ''
+                });
+            };
+
+            if (shouldMigrateLegacySubjectLinks) {
+                appState.students.forEach(student => {
+                    ensureSubjectAssignment(student.subject, student.class, student.section, student.studyType || 'صباحي');
+                    (Array.isArray(student.behaviorLog) ? student.behaviorLog : []).forEach(log => {
+                        if (!log) return;
+                        ensureSubjectAssignment(log.subject, log.stage || student.class, log.section == null ? student.section : log.section, log.studyType || student.studyType || 'صباحي');
+                    });
+                });
+                appState.savedSessions.forEach(session => {
+                    if (session) ensureSubjectAssignment(session.subject, session.className, session.section, session.studyType || 'صباحي');
+                });
+                appState.schedule.forEach(item => {
+                    if (!item || !item.subject) return;
+                    const match = String(item.className || '').match(/^(.*?)\s*\((.*?)\s*-\s*(.*?)\)\s*$/);
+                    if (match) ensureSubjectAssignment(item.subject, match[1].trim(), match[2].trim(), match[3].trim());
+                });
+                appState.subjectAssignmentSchemaVersion = 2;
+            }
+
+            // فهرس مستقل للمواد: سجل المادة هنا لا يحمل مرحلة أو شعبة؛ الربط بالشعب محفوظ في appState.subjects.
+            const catalogSource = Array.isArray(appState.subjectCatalog) ? appState.subjectCatalog : [];
+            const catalogMap = new Map();
+            [...catalogSource, ...(appState.subjects || [])].forEach(item => {
+                const name = String(typeof item === 'string' ? item : (item && item.name) || '').trim();
+                if (!name) return;
+                const key = normalizeAcademicText(name);
+                if (!catalogMap.has(key)) {
+                    catalogMap.set(key, {
+                        id: item && item.id != null ? item.id : (Date.now() + Math.random()),
+                        name,
+                        teacher: (item && item.teacher) || (appState.schoolInfo && appState.schoolInfo.teacher) || ''
+                    });
+                } else {
+                    const existing = catalogMap.get(key);
+                    if (!existing.teacher && item && item.teacher) existing.teacher = item.teacher;
+                }
+            });
+            appState.subjectCatalog = Array.from(catalogMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        }
+
+        function normalizeAcademicText(value) {
+            return String(value == null ? '' : value).normalize('NFKC').trim().toLocaleLowerCase('ar');
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
+
+        function getSubjectAssignmentKey(subjectName, className, section, studyType) {
+            return [subjectName, className, section, studyType || 'صباحي'].map(normalizeAcademicText).join('||');
+        }
+
+        function parseClassSelection(value) {
+            const parts = String(value || '').split(' - ');
+            return {
+                name: (parts[0] || '').trim(),
+                section: (parts[1] || '').trim(),
+                studyType: (parts.slice(2).join(' - ') || 'صباحي').trim()
+            };
+        }
+
+        function getClassSubjectNames(classRecord) {
+            if (!classRecord) return [];
+            const seen = new Set();
+            return appState.subjects
+                .filter(subject => normalizeAcademicText(subject.class) === normalizeAcademicText(classRecord.name) &&
+                    normalizeAcademicText(subject.section) === normalizeAcademicText(classRecord.section) &&
+                    normalizeAcademicText(subject.studyType || 'صباحي') === normalizeAcademicText(classRecord.studyType || 'صباحي'))
+                .map(subject => String(subject.name || '').trim())
+                .filter(name => {
+                    const key = normalizeAcademicText(name);
+                    if (!name || seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                })
+                .sort((a, b) => a.localeCompare(b, 'ar'));
+        }
+
+        function getAllRegisteredSubjectNames() {
+            const names = new Map();
+            (appState.subjectCatalog || []).forEach(item => {
+                const name = String(item && item.name || '').trim();
+                const key = normalizeAcademicText(name);
+                if (name && !names.has(key)) names.set(key, name);
+            });
+            // Fallback for imported/older records until normalizeAppState runs.
+            (appState.subjects || []).forEach(item => {
+                const name = String(item && item.name || '').trim();
+                const key = normalizeAcademicText(name);
+                if (name && !names.has(key)) names.set(key, name);
+            });
+            return [...names.values()].sort((a, b) => a.localeCompare(b, 'ar'));
+        }
+
+        function getSubjectNamesForClassSelection(classValue) {
+            if (!classValue || classValue === 'all') return getAllRegisteredSubjectNames();
+            const parts = parseClassSelection(classValue);
+            const classRecord = appState.classes.find(cls =>
+                normalizeAcademicText(cls.name) === normalizeAcademicText(parts.name) &&
+                normalizeAcademicText(cls.section) === normalizeAcademicText(parts.section) &&
+                normalizeAcademicText(cls.studyType || 'صباحي') === normalizeAcademicText(parts.studyType || 'صباحي')
+            );
+            return classRecord ? getClassSubjectNames(classRecord) : [];
+        }
+
+        function getSubjectOptionsHtmlForClass(classValue, selectedSubject = '') {
+            const names = getSubjectNamesForClassSelection(classValue);
+            if (!names.length) return '<option value="">لا توجد مواد مرتبطة بهذه الشعبة</option>';
+            const hasSelected = names.some(name => normalizeAcademicText(name) === normalizeAcademicText(selectedSubject));
+            return names.map((name, index) => `<option value="${escapeHtml(name)}" ${(hasSelected ? normalizeAcademicText(name) === normalizeAcademicText(selectedSubject) : index === 0) ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('');
+        }
+
+        function applyClassSubjectNames(classRecord, rawNames) {
+            if (!classRecord) return;
+            const catalogNames = new Map((appState.subjectCatalog || []).map(item => [normalizeAcademicText(item.name), String(item.name || '').trim()]));
+            const rawRequested = String(rawNames || '').split(/[,،;؛\n\r]+/).map(name => name.trim()).filter(Boolean);
+            const requestedNames = [];
+            const seenNames = new Set();
+            const unknownNames = [];
+            rawRequested.forEach(name => {
+                const key = normalizeAcademicText(name);
+                const canonical = catalogNames.get(key);
+                if (!canonical) { unknownNames.push(name); return; }
+                if (!seenNames.has(key)) {
+                    seenNames.add(key);
+                    requestedNames.push(canonical);
+                }
+            });
+
+            const identityMatches = subject =>
+                normalizeAcademicText(subject.class) === normalizeAcademicText(classRecord.name) &&
+                normalizeAcademicText(subject.section) === normalizeAcademicText(classRecord.section) &&
+                normalizeAcademicText(subject.studyType || 'صباحي') === normalizeAcademicText(classRecord.studyType || 'صباحي');
+
+            appState.subjects = appState.subjects.filter(subject => !identityMatches(subject) || seenNames.has(normalizeAcademicText(subject.name)));
+            requestedNames.forEach(name => {
+                const exists = appState.subjects.some(subject => identityMatches(subject) && normalizeAcademicText(subject.name) === normalizeAcademicText(name));
+                if (!exists) appState.subjects.push({
+                    id: Date.now() + Math.random(),
+                    name,
+                    class: classRecord.name,
+                    section: String(classRecord.section || '').trim(),
+                    studyType: String(classRecord.studyType || 'صباحي').trim(),
+                    teacher: (appState.subjectCatalog.find(item => normalizeAcademicText(item.name) === normalizeAcademicText(name)) || {}).teacher || (appState.schoolInfo && appState.schoolInfo.teacher) || ''
+                });
+            });
+            if (unknownNames.length) showToast('تم تجاهل مواد غير مسجلة في تبويب إضافة مادة دراسية: ' + unknownNames.slice(0, 2).join('، '), 'error');
+        }
+
+        function appendClassSubject(inputId, pickerId) {
+            const input = document.getElementById(inputId);
+            const picker = document.getElementById(pickerId);
+            const pickedName = picker ? String(picker.value || '').trim() : '';
+            if (!input || !pickedName) return;
+            const currentNames = String(input.value || '').split(/[,،;؛\n\r]+/).map(name => name.trim()).filter(Boolean);
+            if (!currentNames.some(name => normalizeAcademicText(name) === normalizeAcademicText(pickedName))) {
+                input.value = currentNames.length ? currentNames.join('، ') + '، ' + pickedName : pickedName;
+            }
+            picker.value = '';
+            showToast('تمت إضافة المادة إلى قائمة الشعبة؛ احفظ لإقرار الربط');
+        }
+
+        function isAssignedSubjectToClass(subjectName, className, section, studyType) {
+            if (!subjectName) return false;
+            return appState.subjects.some(subject =>
+                normalizeAcademicText(subject.name) === normalizeAcademicText(subjectName) &&
+                normalizeAcademicText(subject.class) === normalizeAcademicText(className) &&
+                normalizeAcademicText(subject.section) === normalizeAcademicText(section) &&
+                normalizeAcademicText(subject.studyType || 'صباحي') === normalizeAcademicText(studyType || 'صباحي')
+            );
+        }
+
+        function isSubjectAssignedToStudentClass(subjectName, student) {
+            if (!subjectName || !student) return false;
+            return isAssignedSubjectToClass(subjectName, student.class, student.section, student.studyType || 'صباحي');
+        }
+
+        function updateAttendanceSubjectOptions(selectedSubject = '') {
+            const classSelect = document.getElementById('att-class-select');
+            const subjectSelect = document.getElementById('att-subject-select');
+            if (!classSelect || !subjectSelect) return;
+            const previous = selectedSubject || subjectSelect.value;
+            subjectSelect.innerHTML = getSubjectOptionsHtmlForClass(classSelect.value, previous);
+        }
+
+        function clearAttendancePreview() {
+            const container = document.getElementById('attendance-list-container');
+            if (container) container.innerHTML = '';
+            currentLoadedAttendanceStudents = [];
+            currentAttendanceMap = {};
+        }
+
+        function handleAttendanceClassChange() {
+            updateAttendanceSubjectOptions();
+            clearAttendancePreview();
+        }
+
+        function updateBehaviorSubjectOptions(selectedSubject = '') {
+            const classSelect = document.getElementById('beh-filter-class');
+            const subjectSelect = document.getElementById('beh-filter-subject');
+            if (!classSelect || !subjectSelect) return;
+            const previous = selectedSubject || subjectSelect.value;
+            subjectSelect.innerHTML = getSubjectOptionsHtmlForClass(classSelect.value, previous);
+        }
+
+        function updateScheduleSubjectOptions(selectedSubject = '') {
+            const classSelect = document.getElementById('sch-class-select');
+            const subjectSelect = document.getElementById('sch-subject');
+            if (!classSelect || !subjectSelect) return;
+            const previous = selectedSubject || subjectSelect.value;
+            subjectSelect.innerHTML = getSubjectOptionsHtmlForClass(classSelect.value, previous);
         }
 
         // دالة مساعدة لتوليد خيارات المراحل مدمجة مع الشعبة ونوع الدراسة لتعميمها
@@ -1026,7 +1312,7 @@
                     { title: "تسجيل طالب جديد", desc: "إضافة طالب بالاسم الرباعي والمرحلة والشعبة (مع ربط الدراسة تلقائياً)", icon: "fa-user-plus", colorBg: "bg-emerald-50 text-emerald-600 border-emerald-100", action: "add_student" },
                     { title: "الطلبة المسجلين في النظام", desc: "تعديل وحذف بيانات الطلبة المسجلين ومرحلتهم ودراستهم أبجدياً", icon: "fa-users-gear", colorBg: "bg-teal-50 text-teal-600 border-teal-100", action: "manage_registered_students" },
                     { title: "استيراد أسماء الطلبة", desc: "إدخال قائمة أسماء الطلبة بالجملة حسب المرحلة والشعبة والدراسة", icon: "fa-file-import", colorBg: "bg-sky-50 text-sky-600 border-sky-100", action: "import_students" },
-                    { title: "إضافة مادة دراسية", desc: "إضافة، تعديل، وحذف المواد الدراسية وربطها بالمراحل", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
+                    { title: "إضافة مادة دراسية", desc: "إضافة وتعديل وحذف سجل المواد الدراسية العام", icon: "fa-book-bookmark", colorBg: "bg-rose-50 text-rose-600 border-rose-100", action: "add_subject" }
                 ]
             },
             {
@@ -1112,7 +1398,7 @@
             if (clsTot) clsTot.innerText = appState.classes.length;
 
             const subTot = document.getElementById('stat-total-subjects');
-            if (subTot) subTot.innerText = appState.subjects.length;
+            if (subTot) subTot.innerText = getAllRegisteredSubjectNames().length;
 
             const schTitle = document.getElementById('school-header-title');
             if (schTitle) schTitle.innerText = appState.schoolInfo.name;
@@ -1259,7 +1545,7 @@
                 <option value="${c.name} - ${c.section} - ${c.studyType || 'صباحي'}">${c.name} (شعبة ${c.section} - ${c.studyType || 'صباحي'})</option>
             `).join('');
 
-            let subOpts = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            let subOpts = getAllRegisteredSubjectNames().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
 
             container.innerHTML = `
                 <div class="space-y-3.5">
@@ -1276,7 +1562,7 @@
                     <div class="bg-white rounded-3xl p-3.5 shadow-sm border border-slate-200/80 space-y-2.5">
                         <div>
                             <label class="block text-[10px] font-extrabold text-slate-600 mb-1">المرحلة والشعبة والدراسة:</label>
-                            <select id="beh-filter-class" onchange="renderBehaviorStudentsList()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none">
+                            <select id="beh-filter-class" onchange="updateBehaviorSubjectOptions(); renderBehaviorStudentsList()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none">
                                 <option value="all">جميع المراحل والشعب</option>
                                 ${classOptions}
                             </select>
@@ -1299,6 +1585,7 @@
                 </div>
             `;
 
+            updateBehaviorSubjectOptions();
             renderBehaviorStudentsList();
         }
 
@@ -1318,6 +1605,8 @@
                 );
             }
 
+            const chosenBehaviorSubject = document.getElementById('beh-filter-subject') ? document.getElementById('beh-filter-subject').value : '';
+            if (chosenBehaviorSubject) filtered = filtered.filter(student => isSubjectAssignedToStudentClass(chosenBehaviorSubject, student));
             filtered = sortStudentsAlphabetically(filtered);
 
             if (filtered.length === 0) {
@@ -1377,7 +1666,11 @@
             if (!student) return;
 
             const dateVal = document.getElementById('beh-filter-date').value || new Date().toISOString().split('T')[0];
-            const subjectVal = document.getElementById('beh-filter-subject').value || "عام";
+            const subjectVal = document.getElementById('beh-filter-subject').value || '';
+            if (!subjectVal || !isSubjectAssignedToStudentClass(subjectVal, student)) {
+                showToast('المادة المختارة غير مرتبطة بمرحلة هذا الطالب وشعبته ونوع دراسته', 'error');
+                return;
+            }
 
             student.behavior = mark;
             if (!student.behaviorLog) student.behaviorLog = [];
@@ -1466,7 +1759,7 @@
         // 5. Attendance Tab Rendering
         function renderAttendanceTab(container) {
             let classOptions = getClassOptionsHtml();
-            let subjectOptions = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            let subjectOptions = getAllRegisteredSubjectNames().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
 
             let savedSessionsHtml = appState.savedSessions.map(sess => `
                 <div class="bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs flex justify-between items-center mb-2">
@@ -1496,7 +1789,7 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="block text-[10px] font-extrabold text-slate-600 mb-1">المرحلة والشعبة والدراسة:</label>
-                                <select id="att-class-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900">
+                                <select id="att-class-select" onchange="handleAttendanceClassChange()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900">
                                     ${classOptions || '<option>لا توجد مراحل مضافة</option>'}
                                 </select>
                             </div>
@@ -1507,7 +1800,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-extrabold text-slate-600 mb-1">المادة الدراسية:</label>
-                            <select id="att-subject-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900">
+                            <select id="att-subject-select" onchange="clearAttendancePreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-700 outline-none focus:border-slate-900">
                                 ${subjectOptions || '<option>لا توجد مواد مضافة</option>'}
                             </select>
                         </div>
@@ -1528,6 +1821,7 @@
                     <div id="saved-sessions-list">${savedSessionsHtml || '<p class="text-[11px] text-slate-400 text-center py-2">لا توجد جلسات محفوظة حاليًا</p>'}</div>
                 </div>
             `;
+            updateAttendanceSubjectOptions();
         }
 
         function deleteSavedSession(sessId) {
@@ -1556,9 +1850,13 @@
                 return;
             }
 
-            const [className, sectionPart, studyPart] = classVal.split(" - ");
+            const { name: className, section: sectionPart, studyType: studyPart } = parseClassSelection(classVal);
             const section = sectionPart || "أ";
             const studyType = studyPart || "صباحي";
+            if (!subjectVal || !isAssignedSubjectToClass(subjectVal, className, section, studyType)) {
+                showToast("اختر مادة مرتبطة بالمرحلة والشعبة ونوع الدراسة المحددة", "error");
+                return;
+            }
 
             let filteredStudents = appState.students.filter(s => 
                 s.class.trim() === className.trim() && 
@@ -1679,9 +1977,13 @@
                 return;
             }
 
-            const [className, sectionPart, studyPart] = classVal.split(" - ");
+            const { name: className, section: sectionPart, studyType: studyPart } = parseClassSelection(classVal);
             const section = sectionPart || "أ";
             const studyType = studyPart || "صباحي";
+            if (!subjectVal || !isAssignedSubjectToClass(subjectVal, className, section, studyType)) {
+                showToast("لا يمكن حفظ الحضور لمادة غير مرتبطة بهذه المرحلة والشعبة والدراسة", "error");
+                return;
+            }
             const dayText = getDayName(dateVal);
 
             let cleanRecords = {};
@@ -1747,7 +2049,7 @@
             if (!sess) return;
 
             document.getElementById('att-class-select').value = `${sess.className} - ${sess.section} - ${sess.studyType || 'صباحي'}`;
-            document.getElementById('att-subject-select').value = sess.subject;
+            updateAttendanceSubjectOptions(sess.subject);
             document.getElementById('att-date-input').value = sess.date;
 
             loadAttendanceList(sess);
@@ -2110,6 +2412,7 @@
 
         function getReportSubjectNames() {
             const names = new Set();
+            (appState.subjectCatalog || []).forEach(item => { if (item && item.name) names.add(String(item.name).trim()); });
             (appState.subjects || []).forEach(item => { if (item && item.name) names.add(String(item.name).trim()); });
             (appState.students || []).forEach(student => {
                 if (student && student.subject) names.add(String(student.subject).trim());
@@ -3891,6 +4194,8 @@
 
         // --- Modals Engine ---
         function triggerAction(actionKey) {
+            const modalSubmit = document.getElementById('modal-submit-btn');
+            if (modalSubmit) modalSubmit.style.display = '';
             currentModalType = actionKey;
             const modal = document.getElementById('action-modal');
             const box = document.getElementById('modal-box');
@@ -3959,7 +4264,7 @@
             else if (actionKey === 'add_schedule_item') {
                 titleEl.innerText = "إضافة محاضرة جديدة للجدول";
                 iconEl.className = "fa-solid fa-calendar-plus";
-                let subjectOptions = appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+                let subjectOptions = getAllRegisteredSubjectNames().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
                 let classDropdowns = getClassOptionsHtml();
 
                 bodyEl.innerHTML = `
@@ -3986,7 +4291,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة والدراسة:</label>
-                            <select id="sch-class-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
+                            <select id="sch-class-select" onchange="updateScheduleSubjectOptions()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold">
                                 ${classDropdowns}
                             </select>
                         </div>
@@ -3996,6 +4301,7 @@
                         </div>
                     </div>
                 `;
+                updateScheduleSubjectOptions();
             } 
             else if (actionKey === 'edit_school_info') {
                 titleEl.innerText = "تعديل بيانات الكلية والأستاذ والعام الدراسي";
@@ -4093,11 +4399,19 @@
 
         // 1. إدارة المراحل والشعب
         function renderClassesManagement(container) {
-            let classRows = appState.classes.map(c => `
+            let classRows = appState.classes.map(c => {
+                const classSubjects = getClassSubjectNames(c);
+                const currentCount = appState.students.filter(student =>
+                    normalizeAcademicText(student.class) === normalizeAcademicText(c.name) &&
+                    normalizeAcademicText(student.section) === normalizeAcademicText(c.section) &&
+                    normalizeAcademicText(student.studyType || 'صباحي') === normalizeAcademicText(c.studyType || 'صباحي')
+                ).length;
+                return `
                 <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
-                    <div>
-                        <h5 class="font-extrabold text-xs text-slate-800">${c.name} - شعبة (${c.section})</h5>
-                        <span class="text-[10px] text-slate-500 font-medium">نوع الدراسة: <strong class="text-indigo-600">${c.studyType || 'صباحي'}</strong> | ${c.count || 0} طالب</span>
+                    <div class="min-w-0 flex-1 pl-2">
+                        <h5 class="font-extrabold text-xs text-slate-800">${escapeHtml(c.name)} - شعبة (${escapeHtml(c.section)})</h5>
+                        <span class="text-[10px] text-slate-500 font-medium">نوع الدراسة: <strong class="text-indigo-600">${escapeHtml(c.studyType || 'صباحي')}</strong> | ${currentCount} طالب</span>
+                        <p class="text-[10px] text-slate-600 mt-1 leading-relaxed"><strong class="text-indigo-700">المواد:</strong> ${classSubjects.length ? classSubjects.map(escapeHtml).join('، ') : 'لم تُحدد مادة لهذه الشعبة'}</p>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <button onclick="editClassItem(${c.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
@@ -4109,7 +4423,8 @@
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             container.innerHTML = `
                 <div class="space-y-3">
@@ -4131,6 +4446,19 @@
                                     <option value="مسائي">مسائي</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-[9px] font-bold text-slate-600 mb-1">اختيار مادة مسجلة مسبقاً:</label>
+                            <div class="flex gap-1.5 mb-2">
+                                <select id="inp-class-subject-picker" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl p-1.5 text-[10px] outline-none font-bold">
+                                    <option value="">اختر مادة لإضافتها...</option>
+                                    ${getAllRegisteredSubjectNames().map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}
+                                </select>
+                                <button type="button" onclick="appendClassSubject('inp-class-subjects','inp-class-subject-picker')" class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-black">إضافة</button>
+                            </div>
+                            <label class="block text-[9px] font-bold text-slate-600 mb-1">المواد الدراسية التابعة لهذه المرحلة والشعبة والدراسة:</label>
+                            <textarea id="inp-class-subjects" rows="2" placeholder="أسماء المواد، وافصل بينها بفاصلة أو سطر جديد" class="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs outline-none font-bold resize-y"></textarea>
+                            <p class="text-[9px] text-slate-500 mt-1">يمكن اختر المواد المسجلة في تبويب إضافة مادة دراسية فقط؛ لا تُنشئ المادة هنا. سيظهر الربط في قوائم الحضور والجدول والدرجات والتقارير.</p>
                         </div>
                     </div>
 
@@ -4155,11 +4483,11 @@
                 <div class="space-y-2.5">
                     <div>
                         <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المرحلة الأكاديمية:</label>
-                        <input id="edit-cls-name" type="text" value="${cls.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                        <input id="edit-cls-name" type="text" value="${escapeHtml(cls.name)}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-slate-600 mb-1">الشعبة:</label>
-                        <input id="edit-cls-section" type="text" value="${cls.section}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                        <input id="edit-cls-section" type="text" value="${escapeHtml(cls.section)}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-slate-600 mb-1">نوع الدراسة:</label>
@@ -4167,6 +4495,19 @@
                             <option value="صباحي" ${(cls.studyType === 'صباحي') ? 'selected' : ''}>صباحي</option>
                             <option value="مسائي" ${(cls.studyType === 'مسائي') ? 'selected' : ''}>مسائي</option>
                         </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">اختيار مادة مسجلة مسبقاً:</label>
+                        <div class="flex gap-1.5 mb-2">
+                            <select id="edit-cls-subject-picker" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl p-2 text-[10px] font-bold outline-none">
+                                <option value="">اختر مادة لإضافتها...</option>
+                                ${getAllRegisteredSubjectNames().map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}
+                            </select>
+                            <button type="button" onclick="appendClassSubject('edit-cls-subjects','edit-cls-subject-picker')" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">إضافة</button>
+                        </div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المواد الدراسية المرتبطة بهذه الشعبة والدراسة:</label>
+                        <textarea id="edit-cls-subjects" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none resize-y">${escapeHtml(getClassSubjectNames(cls).join('، '))}</textarea>
+                        <p class="text-[9px] text-slate-500 mt-1">اختر المواد من سجل المواد العام؛ هذا الربط يخص هذه الشعبة ونوع الدراسة فقط.</p>
                     </div>
                     <div class="pt-2 flex gap-2">
                         <button onclick="saveUpdatedClassItem(${cls.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
@@ -4182,30 +4523,68 @@
 
             let newName = document.getElementById('edit-cls-name').value.trim();
             let newSec = document.getElementById('edit-cls-section').value.trim();
-            let newStudy = document.getElementById('edit-cls-study').value;
+            let newStudy = document.getElementById('edit-cls-study').value || 'صباحي';
+            let subjectNames = document.getElementById('edit-cls-subjects') ? document.getElementById('edit-cls-subjects').value : '';
 
             if (!newName || !newSec) {
                 showToast("الرجاء ملء اسم المرحلة والشعبة", "error");
                 return;
             }
+            const duplicate = appState.classes.some(other => other.id !== classId &&
+                normalizeAcademicText(other.name) === normalizeAcademicText(newName) &&
+                normalizeAcademicText(other.section) === normalizeAcademicText(newSec) &&
+                normalizeAcademicText(other.studyType || 'صباحي') === normalizeAcademicText(newStudy));
+            if (duplicate) {
+                showToast("هذه المرحلة والشعبة ونوع الدراسة مسجلة مسبقاً", "error");
+                return;
+            }
 
-            const oldName = cls.name;
-            const oldSec = cls.section;
+            const oldIdentity = { name: cls.name, section: cls.section, studyType: cls.studyType || 'صباحي' };
+            const isOldIdentity = item => normalizeAcademicText(item.class) === normalizeAcademicText(oldIdentity.name) &&
+                normalizeAcademicText(item.section) === normalizeAcademicText(oldIdentity.section) &&
+                normalizeAcademicText(item.studyType || 'صباحي') === normalizeAcademicText(oldIdentity.studyType);
 
             cls.name = newName;
             cls.section = newSec;
             cls.studyType = newStudy;
 
-            appState.students.forEach(st => {
-                if (st.class === oldName && st.section === oldSec) {
-                    st.class = newName;
-                    st.section = newSec;
-                    st.studyType = newStudy;
+            appState.students.forEach(student => {
+                if (normalizeAcademicText(student.class) === normalizeAcademicText(oldIdentity.name) &&
+                    normalizeAcademicText(student.section) === normalizeAcademicText(oldIdentity.section) &&
+                    normalizeAcademicText(student.studyType || 'صباحي') === normalizeAcademicText(oldIdentity.studyType)) {
+                    student.class = newName;
+                    student.section = newSec;
+                    student.studyType = newStudy;
                 }
             });
 
+            appState.subjects.forEach(subject => {
+                if (isOldIdentity(subject)) {
+                    subject.class = newName;
+                    subject.section = newSec;
+                    subject.studyType = newStudy;
+                }
+            });
+
+            appState.savedSessions.forEach(session => {
+                if (normalizeAcademicText(session.className) === normalizeAcademicText(oldIdentity.name) &&
+                    normalizeAcademicText(session.section) === normalizeAcademicText(oldIdentity.section) &&
+                    normalizeAcademicText(session.studyType || 'صباحي') === normalizeAcademicText(oldIdentity.studyType)) {
+                    session.className = newName;
+                    session.section = newSec;
+                    session.studyType = newStudy;
+                }
+            });
+
+            const oldScheduleName = `${oldIdentity.name} (${oldIdentity.section} - ${oldIdentity.studyType})`;
+            const newScheduleName = `${newName} (${newSec} - ${newStudy})`;
+            appState.schedule.forEach(item => {
+                if (String(item.className || '').trim() === oldScheduleName) item.className = newScheduleName;
+            });
+
+            applyClassSubjectNames(cls, subjectNames);
             syncStateToCloud();
-            showToast("تم تعديل المرحلة والشعبة والدراسة بنجاح!");
+            showToast("تم تعديل المرحلة والشعبة والدراسة والمواد المرتبطة بها بنجاح!");
             triggerAction('add_class');
             updateStatsBar();
             renderContent();
@@ -4213,10 +4592,19 @@
 
         function deleteClassItem(classId) {
             if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المرحلة والشعبة؟")) return;
-
+            const deletedClass = appState.classes.find(c => c.id === classId);
+            if (deletedClass) {
+                appState.subjects = appState.subjects.filter(subject =>
+                    !(normalizeAcademicText(subject.class) === normalizeAcademicText(deletedClass.name) &&
+                      normalizeAcademicText(subject.section) === normalizeAcademicText(deletedClass.section) &&
+                      normalizeAcademicText(subject.studyType || 'صباحي') === normalizeAcademicText(deletedClass.studyType || 'صباحي'))
+                );
+                const deletedScheduleName = `${deletedClass.name} (${deletedClass.section} - ${deletedClass.studyType || 'صباحي'})`;
+                appState.schedule = appState.schedule.filter(item => String(item.className || '').trim() !== deletedScheduleName);
+            }
             appState.classes = appState.classes.filter(c => c.id !== classId);
             syncStateToCloud();
-            showToast("تم حذف المرحلة والشعبة بنجاح!");
+            showToast("تم حذف المرحلة والشعبة والمواد المرتبطة بها بنجاح!");
             triggerAction('add_class');
             updateStatsBar();
             renderContent();
@@ -4380,133 +4768,150 @@
 
         // --- 3. إدارة المواد الدراسية ---
         function renderSubjectsManagement(container) {
-            let classDropdowns = getClassOptionsHtml();
-
-            let subjectRows = appState.subjects.map(sub => {
-                const sectionText = sub.section ? `شعبة ${sub.section}` : 'الشعبة غير محددة';
-                const studyText = sub.studyType || 'الدراسة غير محددة';
+            const modalSubmit = document.getElementById('modal-submit-btn');
+            if (modalSubmit) modalSubmit.style.display = 'none';
+            const catalog = Array.isArray(appState.subjectCatalog) ? appState.subjectCatalog : [];
+            const subjectRows = catalog.map(sub => {
+                const assignedClasses = (appState.subjects || []).filter(link => normalizeAcademicText(link.name) === normalizeAcademicText(sub.name));
+                const assignmentSummary = assignedClasses.length
+                    ? assignedClasses.map(link => `${escapeHtml(link.class || '')} (${escapeHtml(link.section || '')} - ${escapeHtml(link.studyType || 'صباحي')})`).join('، ')
+                    : 'لم تُربط بأي شعبة بعد';
                 return `
                 <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 mb-2">
-                    <div>
-                        <h5 class="font-extrabold text-xs text-slate-800">${sub.name}</h5>
-                        <span class="text-[10px] text-slate-400 font-medium">مرتبطة بـ: ${sub.class || 'غير محددة'} | ${sectionText} | ${studyText}</span>
+                    <div class="min-w-0 flex-1 pl-2">
+                        <h5 class="font-extrabold text-xs text-slate-800">${escapeHtml(sub.name)}</h5>
+                        <span class="text-[10px] text-slate-400 font-medium">عدد الشعب المرتبطة: ${assignedClasses.length}</span>
+                        <p class="text-[9px] text-slate-500 mt-1 leading-relaxed">${assignmentSummary}</p>
                     </div>
-                    <div class="flex items-center gap-1.5">
-                        <button onclick="editSubjectItem(${sub.id})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
-                            <i class="fa-solid fa-pen"></i>
-                            <span>تعديل</span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="editSubjectItem(${JSON.stringify(sub.id)})" class="bg-amber-500 text-slate-900 px-2.5 py-1 rounded-xl font-black text-[10px] hover:bg-amber-400 transition-colors shadow-xs flex items-center gap-1">
+                            <i class="fa-solid fa-pen"></i><span>تعديل</span>
                         </button>
-                        <button onclick="deleteSubjectItem(${sub.id})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-black text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1">
+                        <button onclick="deleteSubjectItem(${JSON.stringify(sub.id)})" class="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-1 rounded-xl font-black text-[10px] hover:bg-rose-100 transition-colors flex items-center gap-1" title="حذف المادة">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
-                </div>
-            `;
+                </div>`;
             }).join('');
 
             container.innerHTML = `
                 <div class="space-y-3">
                     <div class="p-3 bg-rose-50/70 border border-rose-100 rounded-2xl">
-                        <h4 class="font-black text-xs text-rose-950 mb-2">إضافة مادة جديدة:</h4>
+                        <h4 class="font-black text-xs text-rose-950 mb-2">إضافة مادة دراسية جديدة:</h4>
                         <div class="space-y-2">
                             <div>
                                 <label class="block text-[9px] font-bold text-slate-600 mb-1">اسم المادة الجامعية:</label>
                                 <input id="inp-sub-name" type="text" placeholder="مثال: تراكيب البيانات" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
                             </div>
-                            <div>
-                                <label class="block text-[9px] font-bold text-slate-600 mb-1">المرحلة والشعبة ونوع الدراسة:</label>
-                                <select id="inp-sub-class" class="w-full bg-white border border-slate-200 rounded-xl p-1.5 text-xs outline-none font-bold">
-                                    ${classDropdowns || '<option value="">أضف مرحلة وشعبة أولاً</option>'}
-                                </select>
-                            </div>
+                            <button type="button" onclick="addSubjectToCatalog()" class="w-full bg-rose-600 text-white py-2 rounded-xl text-xs font-black hover:bg-rose-700"><i class="fa-solid fa-plus ml-1"></i>إضافة المادة إلى القائمة</button>
+                            <p class="text-[9px] text-slate-500">تُضاف المادة إلى سجل المواد العام فقط، ولا تُربط بمرحلة أو شعبة هنا. يتم تحديد الشعب والمواد الخاصة بها من تبويب إدارة المراحل والشعب.</p>
                         </div>
                     </div>
-
                     <div class="pt-1">
                         <h4 class="font-bold text-xs text-slate-700 mb-2">المواد الدراسية المسجلة:</h4>
-                        <div class="max-h-56 overflow-y-auto custom-scroll space-y-1">${subjectRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مواد مسجلة</p>'}</div>
+                        <div class="max-h-56 overflow-y-auto custom-scroll space-y-1">${subjectRows || '<p class="text-xs text-center text-slate-400 py-3">لا توجد مواد مسجلة؛ أضف مادة من الحقل أعلاه أولاً</p>'}</div>
                     </div>
-                </div>
-            `;
+                </div>`;
+        }
+
+        function addSubjectToCatalog() {
+            const input = document.getElementById('inp-sub-name');
+            const name = String(input && input.value || '').trim();
+            if (!name) { showToast('الرجاء إدخال اسم المادة الدراسية', 'error'); return; }
+            if ((appState.subjectCatalog || []).some(item => normalizeAcademicText(item.name) === normalizeAcademicText(name))) {
+                showToast('هذه المادة مسجلة مسبقاً', 'error'); return;
+            }
+            if (!Array.isArray(appState.subjectCatalog)) appState.subjectCatalog = [];
+            appState.subjectCatalog.push({ id: Date.now() + Math.random(), name, teacher: (appState.schoolInfo && appState.schoolInfo.teacher) || '' });
+            appState.subjectCatalog.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            syncStateToCloud();
+            showToast('تمت إضافة المادة إلى سجل المواد العام. اربطها بالشعب من إدارة المراحل والشعب.');
+            updateStatsBar();
+            triggerAction('add_subject');
+            renderContent();
         }
 
         function editSubjectItem(subjectId) {
-            let sub = appState.subjects.find(s => s.id === subjectId);
+            const sub = (appState.subjectCatalog || []).find(item => String(item.id) === String(subjectId));
             if (!sub) return;
-
-            const matchedClass = appState.classes.find(c => c.name === sub.class && c.section === sub.section && (c.studyType || 'صباحي') === (sub.studyType || 'صباحي'))
-                || appState.classes.find(c => c.name === sub.class);
-            const selectedStage = matchedClass ? matchedClass.name : (sub.class || '');
-            const selectedSection = matchedClass ? matchedClass.section : (sub.section || '');
-            const selectedStudy = matchedClass ? (matchedClass.studyType || 'صباحي') : (sub.studyType || '');
-            let classDropdowns = getClassOptionsHtml(selectedStage, selectedSection, selectedStudy);
-
-            let container = document.getElementById('modal-body');
+            const container = document.getElementById('modal-body');
             container.innerHTML = `
                 <div class="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl mb-3 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square text-amber-600"></i>
-                    <p class="text-[10px] font-bold text-slate-800">تعديل المادة: ${sub.name}</p>
+                    <p class="text-[10px] font-bold text-slate-800">تعديل اسم المادة: ${escapeHtml(sub.name)}</p>
                 </div>
                 <div class="space-y-2.5">
                     <div>
                         <label class="block text-[10px] font-bold text-slate-600 mb-1">اسم المادة الجامعية:</label>
-                        <input id="edit-sub-name" type="text" value="${sub.name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-600 mb-1">المرحلة والشعبة ونوع الدراسة:</label>
-                        <select id="edit-sub-class" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
-                            ${classDropdowns || '<option value="">أضف مرحلة وشعبة أولاً</option>'}
-                        </select>
+                        <input id="edit-sub-name" type="text" value="${escapeHtml(sub.name)}" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold outline-none">
+                        <p class="text-[9px] text-slate-500 mt-1">تعديل الاسم يحدّث ربط المادة بالشعب والقوائم والتقارير والسجلات المرتبطة بها.</p>
                     </div>
                     <div class="pt-2 flex gap-2">
-                        <button onclick="saveUpdatedSubjectItem(${sub.id})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
+                        <button onclick="saveUpdatedSubjectItem(${JSON.stringify(sub.id)})" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs shadow-md hover:bg-emerald-700">حفظ التعديل</button>
                         <button onclick="triggerAction('add_subject')" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-xl font-bold text-xs">إلغاء</button>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function saveUpdatedSubjectItem(subjectId) {
-            let sub = appState.subjects.find(s => s.id === subjectId);
+            const sub = (appState.subjectCatalog || []).find(item => String(item.id) === String(subjectId));
             if (!sub) return;
-
-            let newName = document.getElementById('edit-sub-name').value.trim();
-            let classVal = document.getElementById('edit-sub-class').value;
-
-            if (!newName) {
-                showToast("الرجاء إدخال اسم المادة", "error");
-                return;
-            }
-            if (!classVal) {
-                showToast("الرجاء إضافة مرحلة وشعبة ونوع دراسة أولاً", "error");
-                return;
+            const input = document.getElementById('edit-sub-name');
+            const newName = String(input && input.value || '').trim();
+            const oldName = String(sub.name || '').trim();
+            if (!newName) { showToast('الرجاء إدخال اسم المادة', 'error'); return; }
+            if ((appState.subjectCatalog || []).some(item => String(item.id) !== String(subjectId) && normalizeAcademicText(item.name) === normalizeAcademicText(newName))) {
+                showToast('توجد مادة أخرى بهذا الاسم؛ اختر اسماً مختلفاً', 'error'); return;
             }
 
-            const [className, sectionPart, studyPart] = classVal.split(' - ');
+            const oldKey = normalizeAcademicText(oldName);
             sub.name = newName;
-            sub.class = (className || '').trim();
-            sub.section = (sectionPart || '').trim();
-            sub.studyType = (studyPart || 'صباحي').trim();
+            (appState.subjects || []).forEach(item => { if (normalizeAcademicText(item.name) === oldKey) item.name = newName; });
+            (appState.students || []).forEach(student => {
+                if (normalizeAcademicText(student.subject) === oldKey) student.subject = newName;
+                (Array.isArray(student.behaviorLog) ? student.behaviorLog : []).forEach(log => {
+                    if (log && normalizeAcademicText(log.subject) === oldKey) log.subject = newName;
+                });
+            });
+            (appState.savedSessions || []).forEach(session => { if (session && normalizeAcademicText(session.subject) === oldKey) session.subject = newName; });
+            (appState.schedule || []).forEach(item => { if (item && normalizeAcademicText(item.subject) === oldKey) item.subject = newName; });
+            if (appState.schoolInfo && normalizeAcademicText(appState.schoolInfo.subject) === oldKey) appState.schoolInfo.subject = newName;
 
+            // عند تغيير الاسم إلى اسم مستخدم سابقاً في نفس الشعبة، ادمج الربط المكرر.
+            const assignments = new Map();
+            (appState.subjects || []).forEach(item => {
+                const key = getSubjectAssignmentKey(item.name, item.class, item.section, item.studyType || 'صباحي');
+                if (!assignments.has(key)) assignments.set(key, item);
+            });
+            appState.subjects = Array.from(assignments.values());
             syncStateToCloud();
-            showToast("تم تعديل بيانات المادة الدراسية بنجاح!");
-            triggerAction('add_subject');
+            showToast('تم تعديل اسم المادة وتحديث ارتباطاتها بنجاح');
             updateStatsBar();
+            triggerAction('add_subject');
             renderContent();
         }
 
         function deleteSubjectItem(subjectId) {
-            if (!confirm("هل أنت متأكد من رغبتك في حذف هذه المادة الدراسية؟")) return;
+            const sub = (appState.subjectCatalog || []).find(item => String(item.id) === String(subjectId));
+            if (!sub) return;
+            const name = String(sub.name || '').trim();
+            if (!confirm(`هل أنت متأكد من حذف المادة «${name}» من سجل المواد؟ سيُحذف ربطها بالشعب والمحاضرات المجدولة، مع الإبقاء على السجلات التاريخية للطلبة والحضور والدرجات.`)) return;
 
-            appState.subjects = appState.subjects.filter(s => s.id !== subjectId);
+            const key = normalizeAcademicText(name);
+            appState.subjectCatalog = (appState.subjectCatalog || []).filter(item => String(item.id) !== String(subjectId));
+            appState.subjects = (appState.subjects || []).filter(item => normalizeAcademicText(item.name) !== key);
+            appState.schedule = (appState.schedule || []).filter(item => normalizeAcademicText(item && item.subject) !== key);
+            // لا نحذف الدرجات أو سجلات الحضور/السلوك التاريخية، حتى لا تضيع البيانات الأكاديمية المحفوظة.
             syncStateToCloud();
-            showToast("تم حذف المادة الدراسية بنجاح!");
-            triggerAction('add_subject');
+            showToast('تم حذف المادة من القائمة والارتباطات النشطة');
             updateStatsBar();
+            triggerAction('add_subject');
             renderContent();
         }
 
         function closeModal() {
+            const modalSubmit = document.getElementById('modal-submit-btn');
+            if (modalSubmit) modalSubmit.style.display = '';
             const modal = document.getElementById('action-modal');
             const box = document.getElementById('modal-box');
             modal.classList.add('opacity-0', 'pointer-events-none');
@@ -4516,12 +4921,19 @@
 
         function handleModalSubmit() {
             if (currentModalType === 'add_class') {
-                const name = document.getElementById('inp-class-name').value;
-                const section = document.getElementById('inp-class-section').value;
-                const studyType = document.getElementById('inp-class-study').value;
+                const name = document.getElementById('inp-class-name').value.trim();
+                const section = document.getElementById('inp-class-section').value.trim();
+                const studyType = document.getElementById('inp-class-study').value || 'صباحي';
+                const subjectNames = document.getElementById('inp-class-subjects') ? document.getElementById('inp-class-subjects').value : '';
                 if (!name || !section) { showToast("الرجاء إدخال البيانات المطلوبة", "error"); return; }
-                appState.classes.push({ id: Date.now(), name, section, studyType, count: 0 });
-                showToast("تمت إضافة المرحلة والشعبة بنجاح");
+                const duplicate = appState.classes.some(cls => normalizeAcademicText(cls.name) === normalizeAcademicText(name) &&
+                    normalizeAcademicText(cls.section) === normalizeAcademicText(section) &&
+                    normalizeAcademicText(cls.studyType || 'صباحي') === normalizeAcademicText(studyType));
+                if (duplicate) { showToast("هذه المرحلة والشعبة ونوع الدراسة مسجلة مسبقاً", "error"); return; }
+                const newClass = { id: Date.now(), name, section, studyType, count: 0 };
+                appState.classes.push(newClass);
+                applyClassSubjectNames(newClass, subjectNames);
+                showToast("تمت إضافة المرحلة والشعبة والمواد المرتبطة بها بنجاح");
             } 
             else if (currentModalType === 'add_student') {
                 const name = document.getElementById('inp-std-name').value;
@@ -4548,44 +4960,36 @@
                 });
                 showToast("تم إضافة الطالب بنجاح");
             } else if (currentModalType === 'add_subject') {
-                const name = document.getElementById('inp-sub-name').value.trim();
-                const classVal = document.getElementById('inp-sub-class').value;
+                // التوافق مع أي نموذج قديم: المواد تُسجّل في الكتالوج العام فقط.
+                const name = String(document.getElementById('inp-sub-name') && document.getElementById('inp-sub-name').value || '').trim();
                 if (!name) { showToast("الرجاء إدخال اسم المادة", "error"); return; }
-                if (!classVal) { showToast("أضف مرحلة وشعبة ونوع دراسة أولاً", "error"); return; }
-
-                const [className, sectionPart, studyPart] = classVal.split(' - ');
-                const section = (sectionPart || '').trim();
-                const studyType = (studyPart || 'صباحي').trim();
-                const exists = appState.subjects.some(subject =>
-                    String(subject.name || '').trim().toLocaleLowerCase() === name.toLocaleLowerCase() &&
-                    String(subject.class || '').trim() === (className || '').trim() &&
-                    String(subject.section || '').trim() === section &&
-                    String(subject.studyType || '').trim() === studyType
-                );
-                if (exists) { showToast("هذه المادة مسجلة مسبقاً لهذه المرحلة والشعبة والدراسة", "error"); return; }
-
-                appState.subjects.push({
-                    id: Date.now(), name, class: (className || '').trim(), section, studyType,
-                    teacher: appState.schoolInfo.teacher
-                });
-                showToast("تمت إضافة المادة وربطها بالمرحلة والشعبة والدراسة بنجاح");
+                if ((appState.subjectCatalog || []).some(item => normalizeAcademicText(item.name) === normalizeAcademicText(name))) {
+                    showToast("هذه المادة مسجلة مسبقاً", "error"); return;
+                }
+                if (!Array.isArray(appState.subjectCatalog)) appState.subjectCatalog = [];
+                appState.subjectCatalog.push({ id: Date.now() + Math.random(), name, teacher: appState.schoolInfo.teacher || '' });
+                showToast("تمت إضافة المادة إلى سجل المواد العام؛ اربطها بالشعب من إدارة المراحل والشعب");
             } else if (currentModalType === 'add_schedule_item') {
                 const day = document.getElementById('sch-day').value;
                 const subject = document.getElementById('sch-subject').value;
                 const time = document.getElementById('sch-time').value || "08:30 - 10:30";
                 const classVal = document.getElementById('sch-class-select').value;
                 const hall = document.getElementById('sch-hall').value || "قاعة عامة";
-                const [className, sectionPart, studyPart] = classVal.split(" - ");
+                const selectedClass = parseClassSelection(classVal);
+                if (!subject || !isAssignedSubjectToClass(subject, selectedClass.name, selectedClass.section, selectedClass.studyType)) {
+                    showToast("اختر مادة مرتبطة بالمرحلة والشعبة ونوع الدراسة المحددة", "error");
+                    return;
+                }
 
                 appState.schedule.push({ 
                     id: Date.now(), 
                     day, 
                     subject, 
-                    className: `${className} (${sectionPart} - ${studyPart})`, 
+                    className: `${selectedClass.name} (${selectedClass.section} - ${selectedClass.studyType})`, 
                     time: time, 
                     hall: hall 
                 });
-                showToast("تمت إضافة المحاضرة للجدول");
+                showToast("تمت إضافة المحاضرة للجدول وربطها بالمادة والشعبة");
             } 
             else if (currentModalType === 'edit_school_info') {
                 // تهيئة كائن البيانات وضمان قراءة جميع الحقول الظاهرة في النموذج قبل الحفظ.
@@ -4758,6 +5162,8 @@
             normalizeAppState();
             // access tokens are memory-only; the user may reconnect from Settings to restore the Drive backup.
             if (appState.googleConfig) appState.googleConfig.connected = false;
+            // حفظ الترحيل المحلي الجديد مباشرة حتى لا تعود البيانات القديمة إلى نمط الربط السابق عند إعادة فتح الملف.
+            persistLocalState();
             initSupabase();
             switchTab(1);
         };
